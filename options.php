@@ -1,8 +1,48 @@
 <?php
+if (!function_exists('rgplugins_fetch_releases')) {
+  function rgplugins_fetch_releases($repo_url, $include_prereleases = false, $limit = 20) {
+    $repo_path = parse_url($repo_url, PHP_URL_PATH);
+    if (!$repo_path) return [];
+    $api_url = 'https://api.github.com/repos' . $repo_path . '/releases?per_page=' . intval($limit);
+
+    $headers = [
+      'User-Agent' => 'WordPress Plugin',
+      'Accept' => 'application/vnd.github+json',
+    ];
+    $token = get_option('rgplugins_github_token', '');
+    if (!empty($token)) {
+      $headers['Authorization'] = 'Bearer ' . $token;
+    }
+
+    $response = wp_remote_get($api_url, [
+      'headers' => $headers,
+      'timeout' => 20,
+      'redirection' => 3,
+    ]);
+    if (is_wp_error($response)) return [];
+    if ((int) wp_remote_retrieve_response_code($response) !== 200) return [];
+
+    $data = json_decode(wp_remote_retrieve_body($response), true);
+    if (!is_array($data)) return [];
+
+    $releases = [];
+    foreach ($data as $rel) {
+      if (!empty($rel['draft'])) continue; // hoppa över draft
+      if (!$include_prereleases && !empty($rel['prerelease'])) continue; // hoppa över prerelease om ej valt
+      if (empty($rel['tag_name'])) continue;
+      $releases[] = [
+        'tag' => $rel['tag_name'],
+        'name' => !empty($rel['name']) ? $rel['name'] : $rel['tag_name'],
+        'prerelease' => !empty($rel['prerelease']),
+      ];
+    }
+    return $releases;
+  }
+}
 // Skapa en meny för plugininställningar
 add_action("admin_menu", function () {
   add_options_page(
-    "RG Plugins Info",
+    "RG Plugins Info & Beta",
     "RG Plugins",
     "manage_options",
     "rgplugins-settings",
@@ -30,11 +70,12 @@ if (!function_exists("get_github_plugins")) {
 
       if (strpos($update_uri, "github.com") !== false) {
         $github_plugins[] = [
-          "name" => $plugin_info["Name"],
-          "version" => $plugin_info["Version"],
-          "author" => $plugin_info["Author"],
-          "github" => $update_uri,
-          "latest_release" => get_latest_github_release($update_uri, false, $force_refresh),
+          'name' => $plugin_info['Name'],
+          'version' => $plugin_info['Version'],
+          'author' => $plugin_info['Author'],
+          'github' => $update_uri,
+          'latest_release' => get_latest_github_release($update_uri, false, $force_refresh),
+          'file' => $plugin_path,
         ];
       }
     }
@@ -61,7 +102,36 @@ if (!function_exists("rgplugins_settings_page")) {
             <p>
               <a href="<?php echo esc_url($refresh_url); ?>" class="button"><?php echo esc_html__('Uppdatera lista', 'kmg-transport-plugin'); ?></a>
             </p>
-            <table class="widefat fixed">
+            <style>
+              .rgplugins-table { table-layout: auto; }
+              .rgplugins-table .repo a { display:inline-block; max-width: 360px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+              .rgplugins-table td, .rgplugins-table th { vertical-align: middle; padding: 10px 12px; }
+              .rgplugins-table td.actions form { display:flex; gap:10px; align-items:center; flex-wrap: wrap; }
+              .rgplugins-table td.actions select { min-width: 160px; flex: 1 1 auto; }
+              .rgplugins-table td.actions .button { white-space: nowrap; }
+              .rgplugins-table td.actions .button { padding: 2px 8px; font-size: 13px; line-height: 1.6; }
+
+              /* Medium screens: tighten up */
+              @media (max-width: 1020px) {
+                .rgplugins-table .repo a { max-width: 220px; }
+              }
+
+              /* Small screens: card layout */
+              @media (max-width: 782px) {
+                .rgplugins-table thead { display:none; }
+                .rgplugins-table tr { display:block; margin: 0 0 14px; border:1px solid #ccd0d4; border-radius:4px; background:#fff; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+                .rgplugins-table td { display:flex; gap:10px; justify-content:space-between; border-top:1px solid #f0f0f1; padding:8px 10px; }
+                .rgplugins-table td:first-child { border-top:0; }
+                .rgplugins-table td::before { content: attr(data-label); font-weight:600; color:#1d2327; }
+                .rgplugins-table td.actions { display:block; }
+                .rgplugins-table td.actions::before { content: attr(data-label); display:block; margin-bottom:6px; font-weight:600; }
+                .rgplugins-table td.actions form { display:grid; grid-template-columns: 100%; gap:8px; }
+                .rgplugins-table td.actions select { width:100%; }
+                .rgplugins-table td.actions .button { width: 100%; text-align: center; }
+                .rgplugins-table .repo a { white-space: normal; word-break: break-word; }
+              }
+            </style>
+            <table class="widefat fixed striped rgplugins-table">
                 <thead>
                     <tr>
                         <th>Plugin</th>
@@ -69,26 +139,61 @@ if (!function_exists("rgplugins_settings_page")) {
                         <th>Författare</th>
                         <th>GitHub Repository</th>
                         <th>Senaste Release</th>
+                        <th>Välj release</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($github_plugins as $plugin): ?>
                         <tr>
-                            <td><?php echo esc_html($plugin["name"]); ?></td>
-                            <td><?php echo esc_html($plugin["version"]); ?></td>
-                            <td><?php echo esc_html($plugin["author"]); ?></td>
-                            <td><a href="<?php echo esc_url(
-                              $plugin["github"]
-                            ); ?>" target="_blank"><?php echo esc_html(
-  $plugin["github"]
-); ?></a></td>
-                            <td><?php echo esc_html(
-                              $plugin["latest_release"]
-                            ); ?></td>
+                            <?php
+                              $repo_label = $plugin["github"];
+                              $repo_path  = parse_url($plugin["github"], PHP_URL_PATH);
+                              if ($repo_path) { $repo_label = ltrim($repo_path, '/'); }
+                            ?>
+                            <td class="plugin" data-label="Plugin"><?php echo esc_html($plugin["name"]); ?></td>
+                            <td class="version" data-label="Version"><?php echo esc_html($plugin["version"]); ?></td>
+                            <td class="author" data-label="Författare"><?php echo esc_html($plugin["author"]); ?></td>
+                            <td class="repo" data-label="GitHub Repository"><a href="<?php echo esc_url($plugin["github"]); ?>" target="_blank" title="<?php echo esc_attr($plugin["github"]); ?>"><?php echo esc_html($repo_label); ?></a></td>
+                            <td class="latest" data-label="Senaste Release"><?php echo esc_html($plugin["latest_release"]); ?></td>
+                            <td class="actions" data-label="Välj release">
+                              <?php
+                                $include_pre = get_option('rgplugins_include_prereleases', '0') === '1';
+                                $releases = rgplugins_fetch_releases($plugin['github'], $include_pre, 20);
+                                if (empty($releases)) {
+                                  echo '<span style="opacity:.7">' . esc_html__('Inga releaser hittades', 'kmg-transport-plugin') . '</span>';
+                                } else {
+                                  $action = admin_url('admin-post.php');
+                                  $plugin_file = $plugin['file'];
+                                  $nonce = wp_create_nonce('rgplugins_install_release_' . $plugin_file);
+                                  echo '<form method="post" action="' . esc_url($action) . '">';
+                                  echo '<input type="hidden" name="action" value="rgplugins_install_release">';
+                                  echo '<input type="hidden" name="plugin" value="' . esc_attr($plugin_file) . '">';
+                                  echo '<input type="hidden" name="repo" value="' . esc_attr($plugin['github']) . '">';
+                                  echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
+                                  echo '<select name="tag">';
+                                  foreach ($releases as $rel) {
+                                    $label = $rel['tag'] . ($rel['prerelease'] ? ' (pre)' : '');
+                                    echo '<option value="' . esc_attr($rel['tag']) . '">' . esc_html($label) . '</option>';
+                                  }
+                                  echo '</select>';
+                                  submit_button(__('Installera', 'kmg-transport-plugin'), 'secondary', 'submit', false);
+                                  echo '</form>';
+                                }
+                              ?>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
         </table>
+
+        <?php
+        add_action('admin_notices', function () {
+          if (!isset($_GET['rgplugins_msg'])) return;
+          $msg = sanitize_text_field(wp_unslash($_GET['rgplugins_msg']));
+          $class = (isset($_GET['ok']) && $_GET['ok'] === '1') ? 'updated' : 'error';
+          echo '<div class="' . esc_attr($class) . ' notice"><p>' . esc_html($msg) . '</p></div>';
+        });
+        ?>
 
         <?php $ajax_nonce = wp_create_nonce('rgplugins_test_github_token'); $ajax_url = admin_url('admin-ajax.php'); ?>
         <?php // Visa ev. validerings-/sparmeddelanden
@@ -154,45 +259,73 @@ if (!function_exists("rgplugins_settings_page")) {
 function get_latest_github_release($repo_url, $is_private = false, $force_refresh = false)
 {
   $repo_path = parse_url($repo_url, PHP_URL_PATH);
-  $api_url = "https://api.github.com/repos$repo_path/releases/latest";
+  $include_prereleases = get_option('rgplugins_include_prereleases', '0') === '1';
 
-  $cache_key = "github_release_" . md5($repo_url);
+  // Välj API-endpoint beroende på om beta tillåts
+  $api_url = $include_prereleases
+    ? "https://api.github.com/repos$repo_path/releases?per_page=10"
+    : "https://api.github.com/repos$repo_path/releases/latest";
+
+  $cache_key = 'github_release_' . md5($repo_url . '|' . ($include_prereleases ? 'pre' : 'stable'));
   if ($force_refresh) {
     delete_transient($cache_key);
   }
   $cached_release = get_transient($cache_key);
-  // Om vi har ett giltigt cacheat värde (inte N/A), använd det.
   if (!$force_refresh && $cached_release && $cached_release !== 'N/A') {
     return $cached_release;
   }
 
-  $github_token = get_option("rgplugins_github_token", "");
-
+  $github_token = get_option('rgplugins_github_token', '');
   $headers = [
-    "User-Agent" => "WordPress Plugin",
+    'User-Agent' => 'WordPress Plugin',
+    'Accept' => 'application/vnd.github+json',
   ];
-
   if (!empty($github_token) || $is_private) {
     if (empty($github_token)) {
-      return "Privat repo kräver en GitHub-token";
+      return 'Privat repo kräver en GitHub-token';
     }
-    $headers["Authorization"] = "Bearer " . $github_token;
+    $headers['Authorization'] = 'Bearer ' . $github_token;
   }
 
-  $args = ["headers" => $headers];
-  $response = wp_remote_get($api_url, $args);
+  $args = [
+    'headers' => $headers,
+    'timeout' => 20,
+    'redirection' => 3,
+  ];
 
+  $response = wp_remote_get($api_url, $args);
   if (is_wp_error($response)) {
-    return "N/A";
+    set_transient($cache_key, 'N/A', 5 * MINUTE_IN_SECONDS);
+    return 'N/A';
+  }
+  $code = (int) wp_remote_retrieve_response_code($response);
+  if ($code !== 200) {
+    set_transient($cache_key, 'N/A', 5 * MINUTE_IN_SECONDS);
+    return 'N/A';
   }
 
   $body = wp_remote_retrieve_body($response);
   $data = json_decode($body, true);
-  $latest_release = $data["tag_name"] ?? "N/A";
 
-  set_transient($cache_key, $latest_release, HOUR_IN_SECONDS);
+  if ($include_prereleases) {
+    // Hitta första icke-draft release (kan vara prerelease)
+    $latest = 'N/A';
+    if (is_array($data)) {
+      foreach ($data as $rel) {
+        if (!empty($rel['draft'])) { continue; }
+        if (!empty($rel['tag_name'])) { $latest = $rel['tag_name']; break; }
+      }
+    }
+  } else {
+    $latest = is_array($data) ? ($data['tag_name'] ?? 'N/A') : 'N/A';
+  }
 
-  return $latest_release;
+  if ($latest !== 'N/A') {
+    set_transient($cache_key, $latest, HOUR_IN_SECONDS);
+  } else {
+    set_transient($cache_key, 'N/A', 5 * MINUTE_IN_SECONDS);
+  }
+  return $latest;
 }
 
 // Registrera inställningar för GitHub-token
@@ -218,6 +351,33 @@ add_action("admin_init", function () {
     "rgplugins-settings",
     "rgplugins_settings_section"
   );
+
+  // Tillåt förhandsreleaser (beta/rc)
+  register_setting('rgplugins_settings_group', 'rgplugins_include_prereleases');
+  add_settings_field(
+    'rgplugins_include_prereleases',
+    __('Tillåt förhandsreleaser', 'kmg-transport-plugin'),
+    function () {
+      $val = get_option('rgplugins_include_prereleases', '0');
+      echo '<label><input type="checkbox" name="rgplugins_include_prereleases" value="1" ' . checked('1', $val, false) . '> ' . esc_html__('Visa och uppdatera till beta/rc-releaser', 'kmg-transport-plugin') . '</label>';
+    },
+    'rgplugins-settings',
+    'rgplugins_settings_section'
+  );
+
+  // Beta-branch (för manuella branch-byggnader)
+  register_setting('rgplugins_settings_group', 'rgplugins_beta_branch');
+  /* add_settings_field(
+    'rgplugins_beta_branch',
+    __('Beta-branch', 'kmg-transport-plugin'),
+    function () {
+      $val = get_option('rgplugins_beta_branch', '');
+      echo '<input type="text" name="rgplugins_beta_branch" value="' . esc_attr($val) . '" class="regular-text" placeholder="t.ex. develop eller beta">';
+      echo '<p class="description">' . esc_html__('Används för länken “Ladda ner branch-zip” ovan. Påverkar inte automatisk uppdatering.', 'kmg-transport-plugin') . '</p>';
+    },
+    'rgplugins-settings',
+    'rgplugins_settings_section'
+  );*/
 });
 
 // Hantera test av GitHub-token när knappen trycks
@@ -297,3 +457,61 @@ add_action('update_option_rgplugins_github_token', function ($old, $new) {
     )
   );
 }, 10, 2);
+
+// Admin-post handler: installera vald release-tag för ett plugin
+add_action('admin_post_rgplugins_install_release', function () {
+  if (!current_user_can('update_plugins')) {
+    wp_die(__('Du har inte behörighet att uppdatera tillägg.', 'kmg-transport-plugin'));
+  }
+  $plugin = isset($_POST['plugin']) ? sanitize_text_field(wp_unslash($_POST['plugin'])) : '';
+  $repo   = isset($_POST['repo']) ? esc_url_raw(wp_unslash($_POST['repo'])) : '';
+  $tag    = isset($_POST['tag']) ? sanitize_text_field(wp_unslash($_POST['tag'])) : '';
+  $nonce  = isset($_POST['_wpnonce']) ? sanitize_text_field(wp_unslash($_POST['_wpnonce'])) : '';
+  if (!$plugin || !$repo || !$tag || !wp_verify_nonce($nonce, 'rgplugins_install_release_' . $plugin)) {
+    wp_safe_redirect(add_query_arg(['page' => 'rgplugins-settings', 'rgplugins_msg' => urlencode(__('Ogiltig begäran.', 'kmg-transport-plugin'))], admin_url('options-general.php')));
+    exit;
+  }
+
+  // Bygg paket-URLn för codeload med vald tag
+  $repo_path = parse_url($repo, PHP_URL_PATH);
+  $package = 'https://codeload.github.com' . $repo_path . '/zip/refs/tags/' . rawurlencode($tag);
+
+  require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+  require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+  $skin = new Automatic_Upgrader_Skin();
+  $upgrader = new Plugin_Upgrader($skin);
+
+  // Peka WordPress mot rätt destinationsmapp (utan tag i namnet)
+  add_filter('upgrader_package_options', function ($options) use ($plugin) {
+    $options['hook_extra']['plugin'] = $plugin; // används av våra hooks
+    if (defined('WP_PLUGIN_DIR')) {
+      $expected_dir = dirname($plugin);
+      $plugins_dir = trailingslashit(WP_PLUGIN_DIR);
+      $options['destination'] = trailingslashit($plugins_dir . $expected_dir);
+      $options['destination_name'] = $expected_dir;
+      $options['clear_destination'] = true;
+      $options['abort_if_destination_exists'] = false;
+    }
+    return $options;
+  });
+
+  $result = $upgrader->install($package);
+
+  // Försök reaktivera om det var aktivt innan
+  $was_active = is_plugin_active($plugin);
+  if ($result && !is_wp_error($result) && $was_active && !is_plugin_active($plugin)) {
+    activate_plugin($plugin, '', false, true);
+  }
+
+  if ($result && !is_wp_error($result)) {
+    $msg = __('Installationen av vald release lyckades.', 'kmg-transport-plugin');
+    $ok  = '1';
+  } else {
+    $msg = is_wp_error($result) ? $result->get_error_message() : __('Installationen misslyckades.', 'kmg-transport-plugin');
+    $ok  = '0';
+  }
+
+  wp_safe_redirect(add_query_arg(['page' => 'rgplugins-settings', 'rgplugins_msg' => urlencode($msg), 'ok' => $ok], admin_url('options-general.php')));
+  exit;
+});
