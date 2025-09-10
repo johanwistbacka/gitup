@@ -10,8 +10,8 @@ if (!function_exists('rg_updater_log')) {
   }
 }
 
-if (!class_exists('RgGitUpdater')) {
-  class RgGitUpdater {
+if (!class_exists('RgGitUpdaterClass')) {
+  class RgGitUpdaterClass {
     private static $instance = null;
     private $github_token;
 
@@ -145,7 +145,7 @@ if (!class_exists('RgGitUpdater')) {
     }
   }
 
-  RgGitUpdater::get_instance();
+  RgGitUpdaterClass::get_instance();
 }
 
 // Lägg till Authorization-header på GitHub-anrop (inkl. zip-nedladdning) + korrekt Accept
