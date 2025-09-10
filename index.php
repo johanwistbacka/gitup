@@ -9,3 +9,5 @@ Update URI: https://github.com/Ratt-Grafiska/rg-git-updater
 */
 
 require_once plugin_dir_path(__FILE__) . "rg-git-updater.php";
+require_once plugin_dir_path(__FILE__) . "options.php";
+
