@@ -2,15 +2,16 @@
 /*
 Plugin Name: Rätt Grafiska Git Updater
 Description: Hanterar automatiska uppdateringar för Ratt Grafiskas plugins via GitHub.
-Version: 2025.09.10.01
+Version: 2025.09.11.01
 Author: Ratt Grafiska
 Plugin URI: https://github.com/Ratt-Grafiska/rg-git-updater
 Update URI: https://github.com/Ratt-Grafiska/rg-git-updater
 */
-// Initiera uppdateraren
+// Kontrollera om huvudklassen redan är laddad (skydd mot dubbel-inkludering)
 if (!class_exists("RgGitUpdaterClass")) {
 
-require_once plugin_dir_path(__FILE__) . "rg-git-updater.php";
-require_once plugin_dir_path(__FILE__) . "options.php";
+    // Ladda själva uppdateringsmotorn och options-sidan
+    require_once plugin_dir_path(__FILE__) . "rg-git-updater.php";
+    require_once plugin_dir_path(__FILE__) . "options.php";
 
 }
