@@ -2,7 +2,7 @@
 /*
 Plugin Name: Rätt Grafiska Git Updater
 Description: Hanterar automatiska uppdateringar för Ratt Grafiskas plugins via GitHub.
-Version: 2025.09.11.01
+Version: 2025.09.12.01
 Author: Ratt Grafiska
 Plugin URI: https://github.com/Ratt-Grafiska/rg-git-updater
 Update URI: https://github.com/Ratt-Grafiska/rg-git-updater

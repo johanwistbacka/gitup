@@ -419,7 +419,12 @@ add_filter('http_request_args', function ($args, $url) {
       }
     }
   }
-  rg_updater_log('HTTP args prepared for ' . $url . ' headers=' . json_encode($args['headers'] ?? []));
+  // Mask Authorization header before logging
+  $headers_for_log = $args['headers'] ?? [];
+  if (isset($headers_for_log['Authorization'])) {
+    $headers_for_log['Authorization'] = 'Bearer ***redacted***';
+  }
+  rg_updater_log('HTTP args prepared for ' . $url . ' headers=' . json_encode($headers_for_log));
   return $args;
 }, 10, 2);
 
@@ -499,6 +504,44 @@ add_filter('upgrader_pre_download', function ($reply, $package, $upgrader) {
  */
 add_filter('upgrader_source_selection', function ($source, $remote_source, $upgrader, $hook_extra) {
   rg_updater_log('source_selection: source=' . $source . ' remote_source=' . $remote_source . ' hook_extra=' . json_encode($hook_extra));
+
+  // === THEME handling: pick directory that contains a valid style.css (Theme Name header) ===
+  if (!empty($hook_extra['theme'])) {
+    $is_theme_dir = function ($dir) {
+      $style = trailingslashit($dir) . 'style.css';
+      if (!file_exists($style)) return false;
+      $contents = @file_get_contents($style, false, null, 0, 8192);
+      if ($contents === false) return false;
+      return (bool)preg_match('/^\s*Theme\s*Name\s*:\s*(.+)$/mi', $contents);
+    };
+
+    // 1) Already a theme root?
+    if ($is_theme_dir($source)) {
+      rg_updater_log('theme: style.css found at top-level; returning source');
+      return $source;
+    }
+
+    // 2) Search one level deep
+    $dirs_lvl1 = glob(trailingslashit($source) . '*', GLOB_ONLYDIR) ?: [];
+    foreach ($dirs_lvl1 as $d1) {
+      if ($is_theme_dir($d1)) {
+        rg_updater_log('theme: style.css found one level deep in ' . $d1);
+        return $d1;
+      }
+    }
+
+    // 3) Search two levels deep (monorepo patterns like /themes/<slug>/)
+    foreach ($dirs_lvl1 as $d1) {
+      $dirs_lvl2 = glob(trailingslashit($d1) . '*', GLOB_ONLYDIR) ?: [];
+      foreach ($dirs_lvl2 as $d2) {
+        if ($is_theme_dir($d2)) {
+          rg_updater_log('theme: style.css found two levels deep in ' . $d2);
+          return $d2;
+        }
+      }
+    }
+    // If not found, fall through to plugin logic/fallbacks below (WP will error if no valid theme)
+  }
 
   $expected_dir = null;
   $main_file = null;
@@ -629,6 +672,19 @@ add_filter('upgrader_package_options', function ($options) {
       $options['destination_name'] = $expected_dir;
       $options['clear_destination'] = true; // rensa/skriv över
       $options['abort_if_destination_exists'] = false;
+    }
+  }
+
+  // Handle theme updates: ensure destination is the existing theme directory and do not abort if it exists
+  if (empty($hook_extra['plugin']) && !empty($hook_extra['theme'])) {
+    $theme_stylesheet = $hook_extra['theme']; // e.g. vc-theme-2023
+    if (!empty($options['destination'])) {
+      // Point to the exact theme dir
+      $themes_dir = trailingslashit(get_theme_root());
+      $options['destination'] = trailingslashit($themes_dir . $theme_stylesheet);
+      $options['destination_name'] = $theme_stylesheet;
+      $options['clear_destination'] = true; // overwrite existing files during update
+      $options['abort_if_destination_exists'] = false; // allow existing theme dir
     }
   }
 
