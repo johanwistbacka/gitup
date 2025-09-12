@@ -429,6 +429,74 @@ add_filter('http_request_args', function ($args, $url) {
 }, 10, 2);
 
 /**
+ * Hjälpare: markera token-status och (vid 401) skicka mail max 1 gång/dygn.
+ * Skickar ENDAST mail om en token faktiskt är satt.
+ *
+ * @param bool   $ok   True vid 200-svar från api.github.com, annars false.
+ * @param string $url  URL som gav svaret (för logg och felsökning).
+ */
+function rg_updater_mark_token_status($ok, $url = '') {
+  $token = get_option('rgplugins_github_token', '');
+  if ($ok) {
+    update_option('rgplugins_token_status', [
+      'status'        => 'valid',
+      'last_checked'  => time(),
+      'url'           => $url,
+    ]);
+    update_option('rgplugins_token_last_verified', time());
+    return;
+  }
+
+  // Endast varna om token finns – publika repos utan token ska inte maila
+  if (empty($token)) {
+    return;
+  }
+
+  update_option('rgplugins_token_status', [
+    'status'        => 'invalid',
+    'last_checked'  => time(),
+    'url'           => $url,
+  ]);
+
+  // Skicka mail max 1 gång per dygn
+  if (false === get_transient('rgplugins_token_mail_sent')) {
+    $admin_email = get_option('admin_email');
+    if ($admin_email) {
+      $subject = __('RG Git Updater – GitHub-token har slutat fungera', 'kmg-transport-plugin');
+      $body    = sprintf(
+        "%s\n\n%s\n%s\n\n%s\n%s",
+        __('Din GitHub-token verkar vara ogiltig eller ha löpt ut.', 'kmg-transport-plugin'),
+        __('Åtgärd: Gå till Inställningar → RG Git Updater och uppdatera token.', 'kmg-transport-plugin'),
+        __('Tips: Kontrollera även rättigheter (scope) om det gäller privata repos.', 'kmg-transport-plugin'),
+        __('Senast kontrollerad:', 'kmg-transport-plugin') . ' ' . date_i18n(get_option('date_format') . ' ' . get_option('time_format')),
+        $url ? __('Fel vid URL:', 'kmg-transport-plugin') . ' ' . esc_url_raw($url) : ''
+      );
+      wp_mail($admin_email, $subject, $body);
+      set_transient('rgplugins_token_mail_sent', true, DAY_IN_SECONDS);
+      rg_updater_log('Email sent to admin about invalid token');
+    }
+  }
+}
+
+/**
+ * http_response — centralt ställe att se om token är giltig/ogiltig.
+ * Markerar valid vid 200 och invalid vid 401 för api.github.com.
+ */
+add_filter('http_response', function ($response, $args, $url) {
+  $host = parse_url($url, PHP_URL_HOST);
+  if ($host !== 'api.github.com') {
+    return $response;
+  }
+  $code = (int) wp_remote_retrieve_response_code($response);
+  if ($code === 200) {
+    rg_updater_mark_token_status(true, $url);
+  } elseif ($code === 401) { // Unauthorized → trolig utgången/ogiltig token
+    rg_updater_mark_token_status(false, $url);
+  }
+  return $response;
+}, 10, 3);
+
+/**
  * upgrader_pre_download — hämtar zip-filen själv så vi kan kontrollera/validera
  *
  *  - Fångar GitHub-URL:er och laddar ner med våra headers + timeout
@@ -690,4 +758,29 @@ add_filter('upgrader_package_options', function ($options) {
 
   rg_updater_log('package_options(after)=' . json_encode($options));
   return $options;
+});
+
+// Visa en tydlig notice i admin om token markerats som ogiltig, men undertryck vid nyligen ändrad token (ej verifierad än)
+add_action('admin_notices', function () {
+  if (!current_user_can('manage_options')) return;
+  $token = get_option('rgplugins_github_token', '');
+  if (empty($token)) return; // ingen token satt → ingen notice
+
+  $status = get_option('rgplugins_token_status');
+  if (!is_array($status)) return;
+
+  // Visa inte notice om token nyligen uppdaterats men ännu inte verifierats
+  $last_checked = isset($status['last_checked']) ? (int) $status['last_checked'] : 0;
+  $last_updated = (int) get_option('rgplugins_token_last_updated');
+  if ($last_updated && (!$last_checked || $last_checked < $last_updated)) {
+    return; // token ändrades efter senaste check → vänta tills en ny kontroll skett
+  }
+
+  if (($status['status'] ?? '') !== 'invalid') return;
+
+  $settings_url = esc_url(admin_url('options-general.php?page=rgplugins-settings'));
+  echo '<div class="notice notice-error"><p>'
+     . esc_html__('RG Git Updater: Din GitHub-token verkar ogiltig eller har löpt ut.', 'kmg-transport-plugin')
+     . ' <a href="' . $settings_url . '">' . esc_html__('Uppdatera token här.', 'kmg-transport-plugin') . '</a>'
+     . '</p></div>';
 });

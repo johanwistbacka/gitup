@@ -15,6 +15,8 @@ En WordPress-plugin som hanterar **automatiska uppdateringar** för Rätt Grafis
 - ⚙️ **Inställningssida** – Admin-sida som visar installerade plugins/teman, senaste release och möjlighet att manuellt installera valfri tag.
 - 🧪 **Testknapp** – Verifiera att token fungerar direkt i admin.
 - ✅ **Förhandsreleaser (valfritt)** – Kan inkludera prereleases (beta/rc) i både UI och automatiska uppdateringar.
+- 📧 **E-postvarning** – Skickar mail till admin om token blir ogiltig (max en gång per dygn).
+- 🟢 **Statusindikatorer** – Visar senast verifierad tid och när token uppdaterades direkt i admin.
 
 ## Installation
 
@@ -30,6 +32,8 @@ En WordPress-plugin som hanterar **automatiska uppdateringar** för Rätt Grafis
 | **Tillåt förhandsreleaser** | När ibockad inkluderas även prereleases i jämförelse och UI. |
 
 > **Tips:** Skapa en token via [GitHub → Settings → Developer settings → Personal access tokens](https://github.com/settings/tokens). Scope `repo` krävs för privata repos, annars räcker en token utan extra scope.
+
+> **Notis:** Om token blir ogiltig visas en röd varning i admin och ett mail skickas till sidans admin-adress. Varningen döljs automatiskt efter att en ny token sparats, tills den verifierats via GitHub.
 
 ## Så funkar det
 

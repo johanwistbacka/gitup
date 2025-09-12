@@ -356,10 +356,10 @@ if (!function_exists("rgplugins_settings_page")) {
             submit_button(__('Spara inställningar', 'kmg-transport-plugin'));
 
             // Testa GitHub-token
-            submit_button(__('Testa GitHub-anslutning', 'kmg-transport-plugin'), 'secondary', 'test_github_token', false);
+            // submit_button(__('Testa GitHub-anslutning', 'kmg-transport-plugin'), 'secondary', 'test_github_token', false);
 
             // Testa via AJAX (ingen omladdning)
-            echo '<button type="button" id="rgplugins-test-ajax" class="button">' . esc_html__('Testa utan omladdning', 'kmg-transport-plugin') . '</button>';
+            echo '<button type="button" id="rgplugins-test-ajax" class="button">' . esc_html__('Testa GitHub-anslutning', 'kmg-transport-plugin') . '</button>';
             echo '<span id="rgplugins-test-ajax-status" style="margin-left:8px;"></span>';
             ?>
         </form>
@@ -516,6 +516,27 @@ add_action("admin_init", function () {
       echo '<input type="password" name="rgplugins_github_token" value="' .
         esc_attr($token) .
         '" class="regular-text" autocomplete="off" placeholder="ghp_...">';
+
+      // Statusrad: senast verifierad (via http_response 200) och senast uppdaterad (när option ändrades)
+      $last_verified_ts = (int) get_option('rgplugins_token_last_verified');
+      $last_updated_ts  = (int) get_option('rgplugins_token_last_updated');
+      $now              = current_time('timestamp');
+
+      if ($last_verified_ts) {
+        $verified_when = date_i18n( get_option('date_format') . ' ' . get_option('time_format'), $last_verified_ts );
+        echo '<p style="margin-top:6px;"><em>' . esc_html__('Senast verifierad:', 'kmg-transport-plugin') . ' ' . esc_html($verified_when) . '</em></p>';
+      }
+
+      if ($last_updated_ts) {
+        $updated_when = date_i18n( get_option('date_format') . ' ' . get_option('time_format'), $last_updated_ts );
+        $days_ago     = max(0, floor( ($now - $last_updated_ts) / DAY_IN_SECONDS ));
+        $human        = human_time_diff($last_updated_ts, $now);
+        echo '<p style="margin-top:2px;"><em>'
+          . esc_html__('Token uppdaterades:', 'kmg-transport-plugin') . ' '
+          . esc_html( sprintf( _n('%s dag sedan', '%s dagar sedan', $days_ago, 'kmg-transport-plugin'), number_format_i18n($days_ago) ) )
+          . ' (' . esc_html($human) . ') — ' . esc_html($updated_when)
+          . '</em></p>';
+      }
     },
     "rgplugins-settings",
     "rgplugins_settings_section"
@@ -607,6 +628,7 @@ add_action('update_option_rgplugins_github_token', function ($old, $new) {
   if ($old === $new) {
     return;
   }
+    update_option('rgplugins_token_last_updated', time());
   global $wpdb;
   // Ta bort transients för att UI-listan ska uppdateras direkt vid ny token
   $wpdb->query(
