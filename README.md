@@ -1,4 +1,5 @@
 # rg-git-updater
+> **Version:** 2025.09.12.03-beta
  Hanterar automatiska uppdateringar för Ratt Grafiskas plugins via GitHub.
 
 # RG Git Updater
@@ -22,7 +23,7 @@ En WordPress-plugin som hanterar **automatiska uppdateringar** för Rätt Grafis
 
 1. Klona eller ladda ner detta repo till `wp-content/plugins/rg-git-updater`.
 2. Aktivera tillägget i WordPress admin.
-3. Navigera till **Inställningar → RG Git Updater** för att konfigurera.
+3. Navigera till **Verktyg → GitHub-uppdateringar** för att konfigurera.
 
 ## Konfiguration
 
@@ -71,6 +72,16 @@ Loggen hittar du i `wp-content/debug.log`.
 - Kräver att plugins/teman deklarerar `UpdateURI` i plugin-headern eller `ThemeURI` i `style.css`.
 - Endast GitHub-stöd (ej GitLab, Bitbucket etc).
 - Tar alltid första icke-draft release (eller prerelease om tillåtet), inte "latest commit" på branch.
+
+## Changelog
+
+### 2025.09.12.03-beta
+- Flyttade inställningssidan till **Verktyg → GitHub-uppdateringar** för mer logisk placering.
+- Förbättrad logik för tema-uppdateringar: stöd för både `UpdateURI` och `ThemeURI`, samt normalisering av versionstaggar (tar bort `v`).
+- Visar nu "senast verifierad" och "token uppdaterades" under tokenfältet.
+- E-postnotis till admin när token blir ogiltig (max en gång per dygn).
+- Röd admin-notis med länk när token ogiltig, döljs efter att ny token sparats tills verifiering.
+- Utförligare kommentarer i koden och förbättrad README.
 
 ## Licens
 

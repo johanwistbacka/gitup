@@ -68,13 +68,14 @@ if (!function_exists('rgplugins_fetch_releases')) {
 }
 // Skapa en meny för plugininställningar
 // OBS: sidans slug används i redirects/POST-handlers (page=rgplugins-settings)
-add_action("admin_menu", function () {
-  add_options_page(
-    "RG Plugins Info & Beta",
-    "RG Plugins",
-    "manage_options",
-    "rgplugins-settings",
-    "rgplugins_settings_page"
+add_action('admin_menu', function () {
+  add_submenu_page(
+    'tools.php',                                // parent: Verktyg
+    __('GitHub-uppdateringar (RG)', 'rg-git-updater'), // page_title
+    __('GitHub-uppdateringar', 'rg-git-updater'),      // menu_title
+    'update_core',                               // capability (alt: update_plugins)
+    'rgplugins-settings',                        // slug (behåll)
+    'rgplugins_settings_page'                    // callback
   );
 });
 
@@ -164,7 +165,7 @@ if (!function_exists("rgplugins_settings_page")) {
     $force_refresh = isset($_GET['rgplugins_refresh']);
     $github_plugins = get_github_plugins($force_refresh); ?>
         <div class="wrap">
-            <h1>RG Plugins</h1>
+            <h1>RG Git Updates</h1>
             <?php
               // Build a refresh URL that toggles rgplugins_refresh=1
               $refresh_url = add_query_arg('rgplugins_refresh', '1');
@@ -172,6 +173,8 @@ if (!function_exists("rgplugins_settings_page")) {
                 echo '<div class="updated notice"><p>' . esc_html__('Listan uppdaterades från GitHub (cache bypassad).', 'kmg-transport-plugin') . '</p></div>';
               }
             ?>
+                        
+
             <p>
               <a href="<?php echo esc_url($refresh_url); ?>" class="button"><?php echo esc_html__('Uppdatera lista', 'kmg-transport-plugin'); ?></a>
             </p>
@@ -205,6 +208,7 @@ if (!function_exists("rgplugins_settings_page")) {
                 .rgplugins-table .repo a { white-space: normal; word-break: break-word; }
               }
             </style>
+            <h2 style="margin-top:28px;">Tillägg</h2>
             <table class="widefat fixed striped rgplugins-table">
                 <thead>
                     <tr>

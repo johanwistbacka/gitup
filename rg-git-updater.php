@@ -266,6 +266,14 @@ if (!class_exists('RgGitUpdaterClass')) {
       }
       return $tag;
     }
+
+    /**
+     * Normalisera versionssträng från tag (t.ex. ta bort inledande "v").
+     */
+    private function normalize_version_tag($tag) {
+      if (!is_string($tag)) return $tag;
+      return ltrim(trim($tag), 'vV');
+    }
     /**
      * Annonserar tema-uppdateringar till WordPress core.
      * Fungerar analogt med plugin-flödet.
@@ -284,22 +292,29 @@ if (!class_exists('RgGitUpdaterClass')) {
       }
       $themes = wp_get_themes();
       foreach ($themes as $stylesheet => $theme) {
-        $repo_url = $theme->get('ThemeURI');
+        // Använd i första hand UpdateURI (stilheader), annars ThemeURI
+        $repo_url = $theme->get('UpdateURI');
+        if (empty($repo_url)) {
+          $repo_url = $theme->get('ThemeURI');
+        }
         if (empty($repo_url) || strpos($repo_url, 'github.com') === false) {
           continue;
         }
         $latest_release = $this->get_latest_github_release($repo_url);
-        rg_updater_log('check_for_theme_update: theme=' . $stylesheet . ' current=' . $theme->get('Version') . ' latest=' . $latest_release);
         if ($latest_release === 'N/A') {
           continue;
         }
-        if (version_compare($theme->get('Version'), $latest_release, '<')) {
+        $current_ver  = (string) $theme->get('Version');
+        $latest_norm  = $this->normalize_version_tag($latest_release);
+        $current_norm = $this->normalize_version_tag($current_ver);
+        rg_updater_log('check_for_theme_update: theme=' . $stylesheet . ' current=' . $current_ver . ' latest=' . $latest_release . ' (cmp ' . $current_norm . ' vs ' . $latest_norm . ')');
+        if (version_compare($current_norm, $latest_norm, '<')) {
           $repo_path = parse_url($repo_url, PHP_URL_PATH);
           $zip_url = "https://codeload.github.com{$repo_path}/zip/refs/tags/{$latest_release}";
           rg_updater_log('Theme update available for ' . $stylesheet . ' -> tag ' . $latest_release . ' package ' . $zip_url);
           $transient->response[$stylesheet] = [
             'theme'       => $stylesheet,
-            'new_version' => $latest_release,
+            'new_version' => $latest_release, // behåll originaltaggen i UI
             'package'     => $zip_url,
             'url'         => $repo_url,
           ];
@@ -326,8 +341,12 @@ if (!class_exists('RgGitUpdaterClass')) {
         if ($stylesheet !== $args->slug) {
           continue;
         }
-        $repo_url = $theme->get('ThemeURI');
+        $repo_url = $theme->get('UpdateURI');
+        if (empty($repo_url)) {
+          $repo_url = $theme->get('ThemeURI');
+        }
         if (empty($repo_url) || strpos($repo_url, 'github.com') === false) {
+          rg_updater_log('theme_info: no GitHub URI for slug=' . $args->slug);
           return $res;
         }
         $repo_path = parse_url($repo_url, PHP_URL_PATH);
