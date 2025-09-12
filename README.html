@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+	<meta charset="utf-8"/>
+</head>
+<body>
+
+<h1 id="rg-git-updater">rg-git-updater</h1>
+
+<blockquote>
+<p><strong>Version:</strong> 2025.09.12.04-beta
+Hanterar automatiska uppdateringar för Ratt Grafiskas plugins via GitHub.</p>
+</blockquote>
+
+<h1 id="rggitupdater">RG Git Updater</h1>
+
+<p>En WordPress-plugin som hanterar <strong>automatiska uppdateringar</strong> för Rätt Grafiskas plugins och teman via <strong>GitHub Releases</strong>.</p>
+
+<h2 id="funktioner">Funktioner</h2>
+
+<ul>
+<li>🔄 <strong>Plugin-uppdateringar</strong> – Hookar in i WordPress egna uppdateringssystem och jämför installerad version med senaste release-tag.</li>
+<li>🎨 <strong>Tema-uppdateringar</strong> – Stöd även för teman (visas på <em>wp-admin/update-core.php</em>).</li>
+<li>📦 <strong>Säker installation</strong> – Ser till att zip-filen packas upp i rätt mapp (utan att mappnamnet får med taggen).</li>
+<li>🪵 <strong>Loggning</strong> – Skriver detaljerad logg till <code>debug.log</code> när <code>WP_DEBUG</code> är på.</li>
+<li>🔑 <strong>Privata repos</strong> – Stöd för GitHub Personal Access Token (PAT) så att privata repos kan uppdateras.</li>
+<li>⚙️ <strong>Inställningssida</strong> – Admin-sida som visar installerade plugins/teman, senaste release och möjlighet att manuellt installera valfri tag.</li>
+<li>🧪 <strong>Testknapp</strong> – Verifiera att token fungerar direkt i admin.</li>
+<li>✅ <strong>Förhandsreleaser (valfritt)</strong> – Kan inkludera prereleases (beta/rc) i både UI och automatiska uppdateringar.</li>
+<li>📧 <strong>E-postvarning</strong> – Skickar mail till admin om token blir ogiltig (max en gång per dygn).</li>
+<li>🟢 <strong>Statusindikatorer</strong> – Visar senast verifierad tid och när token uppdaterades direkt i admin.</li>
+</ul>
+
+<h2 id="installation">Installation</h2>
+
+<ol>
+<li>Klona eller ladda ner detta repo till <code>wp-content/plugins/rg-git-updater</code>.</li>
+<li>Aktivera tillägget i WordPress admin.</li>
+<li>Navigera till <strong>Verktyg → GitHub-uppdateringar</strong> för att konfigurera.</li>
+</ol>
+
+<h2 id="konfiguration">Konfiguration</h2>
+
+<table>
+<colgroup>
+<col />
+<col />
+</colgroup>
+
+<thead>
+<tr>
+	<th> Inställning </th>
+	<th> Beskrivning </th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+	<td> <strong>GitHub Token</strong> </td>
+	<td> (Valfritt) Personal Access Token för att hämta privata repos eller öka API-limit. </td>
+</tr>
+<tr>
+	<td> <strong>Tillåt förhandsreleaser</strong> </td>
+	<td> När ibockad inkluderas även prereleases i jämförelse och UI. </td>
+</tr>
+</tbody>
+</table>
+
+<blockquote>
+<p><strong>Tips:</strong> Skapa en token via <a href="https://github.com/settings/tokens">GitHub → Settings → Developer settings → Personal access tokens</a>. Scope <code>repo</code> krävs för privata repos, annars räcker en token utan extra scope.</p>
+</blockquote>
+
+<blockquote>
+<p><strong>Notis:</strong> Om token blir ogiltig visas en röd varning i admin och ett mail skickas till sidans admin-adress. Varningen döljs automatiskt efter att en ny token sparats, tills den verifierats via GitHub.</p>
+</blockquote>
+
+<h2 id="såfunkardet">Så funkar det</h2>
+
+<ul>
+<li><strong>När WordPress kollar efter uppdateringar</strong> (via admin eller WP-Cron) hämtar tillägget senaste release-tag från GitHub för varje plugin/tema med en giltig <code>UpdateURI</code>.</li>
+<li>Resultatet cache:as (1h vid lyckad tag, 5min vid fel/N/A) så att sidan inte blir långsam.</li>
+<li>Om en nyare version hittas skickas den in i WordPress egna uppdaterings-API, så att den syns på <em>wp-admin/update-core.php</em>.</li>
+</ul>
+
+<h2 id="manuellinstallationavrelease">Manuell installation av release</h2>
+
+<p>På inställningssidan visas en tabell med:</p>
+
+<ul>
+<li>Plugin/tema</li>
+<li>Installerad version</li>
+<li>Senaste release (hämtad från GitHub)</li>
+<li>Dropdown för att välja tag</li>
+<li><strong>Installera-knapp</strong> för att köra WP Upgrader direkt</li>
+</ul>
+
+<h2 id="loggningfelsökning">Loggning &amp; Felsökning</h2>
+
+<p>När <code>WP_DEBUG</code> är på loggar tillägget:</p>
+
+<ul>
+<li>Vilka API-anrop som görs</li>
+<li>Vilka headers som skickas</li>
+<li>Hittade versioner och jämförelser</li>
+<li>Eventuella fel vid hämtning eller uppackning</li>
+</ul>
+
+<p>Loggen hittar du i <code>wp-content/debug.log</code>.</p>
+
+<h2 id="utveckling">Utveckling</h2>
+
+<ul>
+<li>Kod följer PSR-4 och är kraftigt kommenterad för att underlätta felsökning.</li>
+<li>Updateringslogiken finns i <code>rg-git-updater.php</code>.</li>
+<li>Admin/UI i <code>options.php</code>.</li>
+</ul>
+
+<h2 id="kändabegränsningar">Kända Begränsningar</h2>
+
+<ul>
+<li>Kräver att plugins/teman deklarerar <code>UpdateURI</code> i plugin-headern eller <code>ThemeURI</code> i <code>style.css</code>.</li>
+<li>Endast GitHub-stöd (ej GitLab, Bitbucket etc).</li>
+<li>Tar alltid första icke-draft release (eller prerelease om tillåtet), inte &#8220;latest commit&#8221; på branch.</li>
+</ul>
+
+<h2 id="roadmaptodo">Roadmap / TODO</h2>
+
+<ul>
+<li>[ ] Lägg till full översättningsstöd (textdomän i alla strängar, POT-fil).</li>
+<li>[ ] Generera <code>.pot</code> via WP-CLI (<code>wp i18n make-pot</code>).</li>
+<li>[ ] Förbättra UI för mobil (gör tabellen mer responsiv och knapparna bättre placerade).</li>
+<li>[ ] Eventuell fallback till GitHub commits om inga releasetaggar finns.</li>
+<li>[ ] Stöd för att välja release direkt från wp-admin/update-core.php.</li>
+</ul>
+
+<h2 id="changelog">Changelog</h2>
+
+<h3 id="2025.09.12.04-beta">2025.09.12.04-beta</h3>
+
+<ul>
+<li>Förberett språkstöd: lagt till <code>load_plugin_textdomain()</code> och fallback för att säkerställa att översättningar laddas korrekt.</li>
+<li>Alla UI-strängar på options-sidan översatta till engelska och wrappade med textdomän <code>rg-git-updater</code>.</li>
+<li>Lagt till extra loggning i plugin-uppdateringslogiken: visar när UpdateURI saknas, inte är GitHub eller ingen release hittas.</li>
+<li>Normaliserad versionsjämförelse även för plugins (tar bort <code>v</code> vid jämförelse).</li>
+<li>Mindre UI-fix: justerat tabellutseende för bättre responsivitet på små skärmar.</li>
+</ul>
+
+<h3 id="2025.09.12.03-beta">2025.09.12.03-beta</h3>
+
+<ul>
+<li>Flyttade inställningssidan till <strong>Verktyg → GitHub-uppdateringar</strong> för mer logisk placering.</li>
+<li>Förbättrad logik för tema-uppdateringar: stöd för både <code>UpdateURI</code> och <code>ThemeURI</code>, samt normalisering av versionstaggar (tar bort <code>v</code>).</li>
+<li>Visar nu &#8220;senast verifierad&#8221; och &#8220;token uppdaterades&#8221; under tokenfältet.</li>
+<li>E-postnotis till admin när token blir ogiltig (max en gång per dygn).</li>
+<li>Röd admin-notis med länk när token ogiltig, döljs efter att ny token sparats tills verifiering.</li>
+<li>Utförligare kommentarer i koden och förbättrad README.</li>
+</ul>
+
+<h2 id="licens">Licens</h2>
+
+<p>MIT – se <a href="LICENSE">LICENSE</a></p>
+
+</body>
+</html>
+

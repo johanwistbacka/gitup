@@ -102,14 +102,25 @@ if (!class_exists('RgGitUpdaterClass')) {
       $plugins = get_plugins();
       foreach ($plugins as $plugin_path => $plugin_info) {
         if (empty($plugin_info['UpdateURI'])) {
-          continue; // Endast plugins med Update URI
+          rg_updater_log('plugin check: skipped (no UpdateURI) ' . $plugin_path);
+          continue; // Only plugins with UpdateURI
         }
         $repo_url = $plugin_info['UpdateURI'];
-        $latest_release = $this->get_latest_github_release($repo_url);
-        if ($latest_release === 'N/A') {
+        if (strpos($repo_url, 'github.com') === false) {
+          rg_updater_log('plugin check: skipped (non-GitHub UpdateURI) ' . $plugin_path . ' uri=' . $repo_url);
           continue;
         }
-        if (version_compare($plugin_info['Version'], $latest_release, '<')) {
+        $latest_release = $this->get_latest_github_release($repo_url);
+        if ($latest_release === 'N/A') {
+          rg_updater_log('plugin check: no release tag (N/A) for ' . $plugin_path . ' repo=' . $repo_url);
+          continue;
+        }
+        // Normalize versions to handle tags like v1.2.3 vs 1.2.3
+        $current_ver  = (string) $plugin_info['Version'];
+        $latest_norm  = $this->normalize_version_tag($latest_release);
+        $current_norm = $this->normalize_version_tag($current_ver);
+        rg_updater_log('plugin check: ' . $plugin_path . ' current=' . $current_ver . ' latest=' . $latest_release . ' (cmp ' . $current_norm . ' vs ' . $latest_norm . ')');
+        if (version_compare($current_norm, $latest_norm, '<')) {
           $plugin_slug = dirname($plugin_path);
           $repo_path   = parse_url($repo_url, PHP_URL_PATH);
           // Använd codeload för binär zip utan Accept-förhandling
@@ -196,7 +207,7 @@ if (!class_exists('RgGitUpdaterClass')) {
         $info->homepage      = $repo_url;
         $info->download_link = $zip_url;
         $info->sections      = [
-          'description' => !empty($plugin_info['Description']) ? $plugin_info['Description'] : 'Uppdateringar hämtas från GitHub.',
+          'description' => !empty($plugin_info['Description']) ? $plugin_info['Description'] : 'Updates are fetched from GitHub.',
           'changelog'   => isset($data['body']) ? wp_kses_post($data['body']) : '',
         ];
         return $info;
@@ -481,15 +492,15 @@ function rg_updater_mark_token_status($ok, $url = '') {
   if (false === get_transient('rgplugins_token_mail_sent')) {
     $admin_email = get_option('admin_email');
     if ($admin_email) {
-      $subject = __('RG Git Updater – GitHub-token har slutat fungera', 'kmg-transport-plugin');
-      $body    = sprintf(
-        "%s\n\n%s\n%s\n\n%s\n%s",
-        __('Din GitHub-token verkar vara ogiltig eller ha löpt ut.', 'kmg-transport-plugin'),
-        __('Åtgärd: Gå till Inställningar → RG Git Updater och uppdatera token.', 'kmg-transport-plugin'),
-        __('Tips: Kontrollera även rättigheter (scope) om det gäller privata repos.', 'kmg-transport-plugin'),
-        __('Senast kontrollerad:', 'kmg-transport-plugin') . ' ' . date_i18n(get_option('date_format') . ' ' . get_option('time_format')),
-        $url ? __('Fel vid URL:', 'kmg-transport-plugin') . ' ' . esc_url_raw($url) : ''
-      );
+      $subject = __('RG Git Updater – GitHub token is no longer working', 'rg-git-updater');
+$body    = sprintf(
+  "%s\n\n%s\n%s\n\n%s\n%s",
+  __('Your GitHub token appears to be invalid or has expired.', 'rg-git-updater'),
+  __('Action: Go to Tools → GitHub Updates and update the token.', 'rg-git-updater'),
+  __('Tip: Also verify the scopes (e.g. repo) if you need access to private repositories.', 'rg-git-updater'),
+  __('Last checked:', 'rg-git-updater') . ' ' . date_i18n(get_option('date_format') . ' ' . get_option('time_format')),
+  $url ? __('Error at URL:', 'rg-git-updater') . ' ' . esc_url_raw($url) : ''
+);
       wp_mail($admin_email, $subject, $body);
       set_transient('rgplugins_token_mail_sent', true, DAY_IN_SECONDS);
       rg_updater_log('Email sent to admin about invalid token');
@@ -544,7 +555,7 @@ add_filter('upgrader_pre_download', function ($reply, $package, $upgrader) {
   }
   $tmp = wp_tempnam($package);
   if (!$tmp) {
-    return new WP_Error('download_failed', __('Kunde inte skapa temporär fil.', 'kmg-transport-plugin'));
+    return new WP_Error('download_failed', __('Could not create temporary file.', 'rg-git-updater'));
   }
   $response = wp_remote_get($package, [
     'headers'     => $headers,
@@ -566,13 +577,13 @@ add_filter('upgrader_pre_download', function ($reply, $package, $upgrader) {
     if ($first2 !== 'PK') {
       return new WP_Error(
         'download_failed',
-        sprintf(__('GitHub svarade inte med en zip (Content-Type: %s). Kontrollera token/åtkomst och release-taggen.', 'kmg-transport-plugin'), $ctype)
+        sprintf(__('GitHub did not return a ZIP (Content-Type: %s). Check token/access and the release tag.', 'rg-git-updater'), $ctype)
       );
     }
   }
 
   if ($code !== 200) {
-    return new WP_Error('download_failed', sprintf(__('GitHub-nedladdning misslyckades (HTTP %s).', 'kmg-transport-plugin'), $code));
+    return new WP_Error('download_failed', sprintf(__('GitHub download failed (HTTP %s).', 'rg-git-updater'), $code));
   }
   return $tmp; // Låt upgradern använda vår nedladdade fil
 }, 10, 3);
@@ -633,9 +644,9 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
   $expected_dir = null;
   $main_file = null;
   if (!empty($hook_extra['plugin'])) {
-    // ex: kmg-transport-plugin/index.php
+    // ex: rg-git-updater/index.php
     $plugin_basename = $hook_extra['plugin'];
-    $expected_dir = dirname($plugin_basename); // kmg-transport-plugin
+    $expected_dir = dirname($plugin_basename); // rg-git-updater
     $main_file = basename($plugin_basename);   // index.php
   }
 
@@ -750,8 +761,8 @@ add_filter('upgrader_package_options', function ($options) {
   // Gäller bara pluginuppdateringar där vi vet vilken plugin som uppdateras
   $hook_extra = isset($options['hook_extra']) && is_array($options['hook_extra']) ? $options['hook_extra'] : [];
   if (!empty($hook_extra['plugin'])) {
-    $plugin_basename = $hook_extra['plugin']; // ex: kmg-transport-plugin/index.php
-    $expected_dir = dirname($plugin_basename); // kmg-transport-plugin
+    $plugin_basename = $hook_extra['plugin']; // ex: rg-git-updater/index.php
+    $expected_dir = dirname($plugin_basename); // rg-git-updater
 
     if (!empty($options['destination']) && defined('WP_PLUGIN_DIR')) {
       $plugins_dir = trailingslashit(WP_PLUGIN_DIR);
@@ -797,9 +808,9 @@ add_action('admin_notices', function () {
 
   if (($status['status'] ?? '') !== 'invalid') return;
 
-  $settings_url = esc_url(admin_url('options-general.php?page=rgplugins-settings'));
-  echo '<div class="notice notice-error"><p>'
-     . esc_html__('RG Git Updater: Din GitHub-token verkar ogiltig eller har löpt ut.', 'kmg-transport-plugin')
-     . ' <a href="' . $settings_url . '">' . esc_html__('Uppdatera token här.', 'kmg-transport-plugin') . '</a>'
-     . '</p></div>';
+  $settings_url = esc_url(admin_url('tools.php?page=rgplugins-settings'));
+echo '<div class="notice notice-error"><p>'
+   . esc_html__('RG Git Updater: Your GitHub token appears invalid or has expired.', 'rg-git-updater')
+   . ' <a href="' . $settings_url . '">' . esc_html__('Update the token here.', 'rg-git-updater') . '</a>'
+   . '</p></div>';
 });

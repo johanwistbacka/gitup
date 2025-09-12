@@ -1,0 +1,208 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: rg-git-updater\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/rg-git-updater\n"
+"POT-Creation-Date: 2025-09-12T14:50:39+00:00\n"
+"PO-Revision-Date: 2025-09-12 16:55+0200\n"
+"Last-Translator: Johan Wistbacka <johan@rattgrafiska.se>\n"
+"Language-Team: Rätt Grafiska\n"
+"Language: sv_SE\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Poedit 3.7\n"
+"X-Poedit-Basepath: ..\n"
+"X-Poedit-SearchPath-0: .\n"
+
+#. Plugin Name of the plugin
+#: index.php
+msgid "Rätt Grafiska Git Updater"
+msgstr "RG GitHub Updater"
+
+#. Plugin URI of the plugin
+#: index.php
+msgid "https://github.com/Ratt-Grafiska/rg-git-updater"
+msgstr "https://github.com/Ratt-Grafiska/rg-git-updater"
+
+#. Description of the plugin
+#: index.php
+msgid "Handles automatic updates for Ratt Grafiska's plugins via GitHub."
+msgstr ""
+"Hanterar automatiska uppdateringar för Rätt Grafiskas plugins och teman via "
+"GitHub."
+
+#. Author of the plugin
+#: index.php
+msgid "Ratt Grafiska"
+msgstr "Rätt Grafiska"
+
+#: options.php:74
+msgid "GitHub Updates (RG)"
+msgstr "GitHub Updates"
+
+#: options.php:75
+msgid "GitHub Updates"
+msgstr "GitHub Uppdateringar"
+
+#: options.php:168
+msgid "Git Updater (RG) ."
+msgstr "Git Updater"
+
+#: options.php:173
+msgid "List refreshed from GitHub (cache bypassed)."
+msgstr "Listan uppdaterades från GitHub (cache bypassad)."
+
+#: options.php:178
+msgid "Refresh list"
+msgstr "Uppdatera"
+
+#: options.php:242 options.php:306
+msgid "No releases found"
+msgstr "Inga releaser hittades"
+
+#: options.php:260 options.php:324
+msgid "Install"
+msgstr "Installera"
+
+#: options.php:285
+msgid "No themes with a GitHub Update URI were found."
+msgstr "Inga teman med en GitHub Update URI hittades."
+
+#: options.php:359
+msgid "Save settings"
+msgstr "Spara inställningar"
+
+#: options.php:365
+msgid "Test GitHub connection"
+msgstr "Testa GitHub-anslutning"
+
+#: options.php:530
+msgid "Last verified:"
+msgstr "Senast verifierad:"
+
+#: options.php:538
+msgid "Token updated:"
+msgstr "Token uppdaterad:"
+
+#: options.php:539
+#, php-format
+msgid "%s day ago"
+msgid_plural "%s days ago"
+msgstr[0] "%s dag sedan"
+msgstr[1] "%s dagar sedan"
+
+#: options.php:552
+msgid "Allow pre-releases"
+msgstr "Tillåt beta-versioner"
+
+#: options.php:555
+msgid "Show and update to beta/rc releases"
+msgstr "Visa och uppdatera beta-versioner"
+
+#: options.php:567 options.php:601
+msgid "You do not have permission."
+msgstr "Du har inte tillåtelse."
+
+#: options.php:582 options.php:618
+msgid "Connection error: "
+msgstr "Anslutningsfel:"
+
+#: options.php:587 options.php:624
+#, php-format
+msgid "Authenticated! Logged in as %s"
+msgstr "Authentiserad! Inloggad som %s"
+
+#: options.php:589 options.php:626
+#, php-format
+msgid "Authentication failed. HTTP status: %s"
+msgstr "Autentisering misslyckades. HTTP-status: %s"
+
+#: options.php:607
+msgid "No token saved."
+msgstr "Inte token sparades."
+
+#: options.php:649
+msgid "You do not have permission to update plugins."
+msgstr "Du har inte tillåtelse att uppdatera tillägg."
+
+#: options.php:656
+msgid "Invalid request."
+msgstr "Felaktig förfrågan."
+
+#: options.php:694
+msgid "Installation of selected release succeeded."
+msgstr "Installation av valda släpp lyckades."
+
+#: options.php:697 options.php:748
+msgid "Installation failed."
+msgstr "Installation misslyclads."
+
+#: options.php:708
+msgid "You do not have permission to update themes."
+msgstr "Du har inte tillåtelse att uppdatera teman."
+
+#: options.php:715
+msgid "Invalid request (theme)."
+msgstr "Felaktig förfrågan (tema)."
+
+#: options.php:745
+msgid "Theme installed/updated."
+msgstr "Tema installerat/uppdaterat"
+
+#: rg-git-updater.php:495
+msgid "RG Git Updater – GitHub token is no longer working"
+msgstr "RG Git Updater – GitHub-token fungerar inte längre."
+
+#: rg-git-updater.php:498
+msgid "Your GitHub token appears to be invalid or has expired."
+msgstr "Din GitHub-token verkar vara felaktig eller har gått ut."
+
+#: rg-git-updater.php:499
+msgid "Action: Go to Tools → GitHub Updates and update the token."
+msgstr ""
+"Lösning: Gå till verktyg > GitHub Updates och uppdatera till en aktuell "
+"token."
+
+#: rg-git-updater.php:500
+msgid ""
+"Tip: Also verify the scopes (e.g. repo) if you need access to private "
+"repositories."
+msgstr ""
+"Tips: Kontrollera även rättigheterna (t.ex. repo) om du behöver åtkomst "
+"till privata repositorier."
+
+#: rg-git-updater.php:501
+msgid "Last checked:"
+msgstr "Senast kontrollerad: "
+
+#: rg-git-updater.php:502
+msgid "Error at URL:"
+msgstr "Fel vid URL:"
+
+#: rg-git-updater.php:558
+msgid "Could not create temporary file."
+msgstr "Kan inte skapa temporär fil"
+
+#: rg-git-updater.php:580
+#, php-format
+msgid ""
+"GitHub did not return a ZIP (Content-Type: %s). Check token/access and the "
+"release tag."
+msgstr ""
+"GitHub returnerade inte en ZIP (Content-Type: %s). Kontrollera token/"
+"åtkomst och release-taggen."
+
+#: rg-git-updater.php:586
+#, php-format
+msgid "GitHub download failed (HTTP %s)."
+msgstr "GitHib nedladdning misslyckades (HTTP %s)"
+
+#: rg-git-updater.php:813
+msgid "RG Git Updater: Your GitHub token appears invalid or has expired."
+msgstr ""
+"RG Git Updater: Din Git Hub-token verkar vara felaktig eller har gått ut."
+
+#: rg-git-updater.php:814
+msgid "Update the token here."
+msgstr "Uppdatera token här."

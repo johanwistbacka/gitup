@@ -1,5 +1,5 @@
 # rg-git-updater
-> **Version:** 2025.09.12.03-beta
+> **Version:** 2025.09.12.04-beta
  Hanterar automatiska uppdateringar för Ratt Grafiskas plugins via GitHub.
 
 # RG Git Updater
@@ -73,7 +73,22 @@ Loggen hittar du i `wp-content/debug.log`.
 - Endast GitHub-stöd (ej GitLab, Bitbucket etc).
 - Tar alltid första icke-draft release (eller prerelease om tillåtet), inte "latest commit" på branch.
 
+## Roadmap / TODO
+
+- [ ] Lägg till full översättningsstöd (textdomän i alla strängar, POT-fil).
+- [ ] Generera `.pot` via WP-CLI (`wp i18n make-pot`).
+- [ ] Förbättra UI för mobil (gör tabellen mer responsiv och knapparna bättre placerade).
+- [ ] Eventuell fallback till GitHub commits om inga releasetaggar finns.
+- [ ] Stöd för att välja release direkt från wp-admin/update-core.php.
+
 ## Changelog
+
+### 2025.09.12.04-beta
+- Förberett språkstöd: lagt till `load_plugin_textdomain()` och fallback för att säkerställa att översättningar laddas korrekt.
+- Alla UI-strängar på options-sidan översatta till engelska och wrappade med textdomän `rg-git-updater`.
+- Lagt till extra loggning i plugin-uppdateringslogiken: visar när UpdateURI saknas, inte är GitHub eller ingen release hittas.
+- Normaliserad versionsjämförelse även för plugins (tar bort `v` vid jämförelse).
+- Mindre UI-fix: justerat tabellutseende för bättre responsivitet på små skärmar.
 
 ### 2025.09.12.03-beta
 - Flyttade inställningssidan till **Verktyg → GitHub-uppdateringar** för mer logisk placering.
