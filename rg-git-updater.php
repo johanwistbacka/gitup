@@ -493,14 +493,20 @@ function rg_updater_mark_token_status($ok, $url = '') {
     $admin_email = get_option('admin_email');
     if ($admin_email) {
       $subject = __('RG Git Updater – GitHub token is no longer working', 'rg-git-updater');
-$body    = sprintf(
-  "%s\n\n%s\n%s\n\n%s\n%s",
-  __('Your GitHub token appears to be invalid or has expired.', 'rg-git-updater'),
-  __('Action: Go to Tools → GitHub Updates and update the token.', 'rg-git-updater'),
-  __('Tip: Also verify the scopes (e.g. repo) if you need access to private repositories.', 'rg-git-updater'),
-  __('Last checked:', 'rg-git-updater') . ' ' . date_i18n(get_option('date_format') . ' ' . get_option('time_format')),
-  $url ? __('Error at URL:', 'rg-git-updater') . ' ' . esc_url_raw($url) : ''
-);
+      $body    = sprintf(
+        "%s\n\n%s\n%s\n\n%s\n%s",
+        sprintf(
+          __('Your GitHub token on "%s" appears to be invalid or has expired.', 'rg-git-updater'),
+          get_bloginfo('name')
+        ),
+        sprintf(
+          __('Action: <a href="%s">Go to Tools → GitHub Updates and update the token.</a>', 'rg-git-updater'),
+          esc_url(admin_url('tools.php?page=rgplugins-settings'))
+        ),
+        __('Tip: Also verify the scopes (e.g. repo) if you need access to private repositories.', 'rg-git-updater'),
+        __('Last checked:', 'rg-git-updater') . ' ' . date_i18n(get_option('date_format') . ' ' . get_option('time_format')),
+        $url ? __('Error at URL:', 'rg-git-updater') . ' ' . esc_url_raw($url) : ''
+      );
       wp_mail($admin_email, $subject, $body);
       set_transient('rgplugins_token_mail_sent', true, DAY_IN_SECONDS);
       rg_updater_log('Email sent to admin about invalid token');

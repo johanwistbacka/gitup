@@ -80,8 +80,21 @@ Loggen hittar du i `wp-content/debug.log`.
 - [ ] Förbättra UI för mobil (gör tabellen mer responsiv och knapparna bättre placerade).
 - [ ] Eventuell fallback till GitHub commits om inga releasetaggar finns.
 - [ ] Stöd för att välja release direkt från wp-admin/update-core.php.
+- [ ] Lägg till en ikon för tillägget (visas i WordPress admin pluginsida).
+- [ ] Lägg till en inställning för debug-läge så att loggar kan stängas av från admin.
+- [ ] Lägg till knapp för att rensa cache för GitHub-responses direkt från admin.
+- [ ] Stöd för GitHub-webhooks för att trigga uppdateringskontroll vid ny release.
+- [ ] Möjlighet att uppdatera alla plugins/teman i en batch från options-sidan.
+- [ ] Visa release notes, datum och länk till GitHub-release i UI.
+- [ ] Integrera med Site Health så att tokenstatus och uppdateringsfel visas där.
+- [ ] Lägg till WP-CLI-kommandon (`wp rg-updater check`, `wp rg-updater update`).
+- [ ] Flytta API-anrop till cron/AJAX för att snabba upp admin-sidor.
 
 ## Changelog
+
+### 2025.09.15.01-beta
+- E-postmeddelandet vid ogiltig token inkluderar nu sidans titel för tydligare kontext.
+- Lagt till klickbar länk i e-postmeddelandet som leder direkt till Tools → GitHub Updates.
 
 ### 2025.09.12.04-beta
 - Förberett språkstöd: lagt till `load_plugin_textdomain()` och fallback för att säkerställa att översättningar laddas korrekt.
