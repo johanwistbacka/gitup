@@ -2,14 +2,14 @@
 # This file is distributed under the same license as the Rätt Grafiska Git Updater plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: Rätt Grafiska Git Updater 2025.09.12.03-beta\n"
+"Project-Id-Version: Rätt Grafiska Git Updater 2025.09.15.01-beta\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/rg-git-updater\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2025-09-12T14:50:39+00:00\n"
+"POT-Creation-Date: 2025-09-15T08:22:06+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: rg-git-updater\n"
@@ -34,6 +34,11 @@ msgstr ""
 msgid "Ratt Grafiska"
 msgstr ""
 
+#: index.php:49
+#: index.php:57
+msgid "Settings"
+msgstr ""
+
 #: options.php:74
 msgid "GitHub Updates (RG)"
 msgstr ""
@@ -42,160 +47,170 @@ msgstr ""
 msgid "GitHub Updates"
 msgstr ""
 
-#: options.php:168
+#: options.php:180
 msgid "Git Updater (RG) ."
 msgstr ""
 
-#: options.php:173
+#: options.php:185
 msgid "List refreshed from GitHub (cache bypassed)."
 msgstr ""
 
-#: options.php:178
+#: options.php:190
 msgid "Refresh list"
 msgstr ""
 
-#: options.php:242
-#: options.php:306
+#: options.php:254
+#: options.php:318
 msgid "No releases found"
 msgstr ""
 
-#: options.php:260
-#: options.php:324
+#: options.php:272
+#: options.php:336
 msgid "Install"
 msgstr ""
 
-#: options.php:285
+#: options.php:297
 msgid "No themes with a GitHub Update URI were found."
 msgstr ""
 
-#: options.php:359
+#: options.php:371
 msgid "Save settings"
 msgstr ""
 
-#: options.php:365
+#: options.php:377
 msgid "Test GitHub connection"
 msgstr ""
 
-#: options.php:530
+#: options.php:542
 msgid "Last verified:"
 msgstr ""
 
-#: options.php:538
+#: options.php:550
 msgid "Token updated:"
 msgstr ""
 
-#: options.php:539
+#: options.php:551
 #, php-format
 msgid "%s day ago"
 msgid_plural "%s days ago"
 msgstr[0] ""
 msgstr[1] ""
 
-#: options.php:552
+#: options.php:564
 msgid "Allow pre-releases"
 msgstr ""
 
-#: options.php:555
+#: options.php:567
 msgid "Show and update to beta/rc releases"
 msgstr ""
 
-#: options.php:567
-#: options.php:601
+#: options.php:577
+msgid "Debug mode"
+msgstr ""
+
+#: options.php:580
+msgid "Enable logging for RG Git Updater"
+msgstr ""
+
+#: options.php:590
+#: options.php:624
 msgid "You do not have permission."
 msgstr ""
 
-#: options.php:582
-#: options.php:618
+#: options.php:605
+#: options.php:641
 msgid "Connection error: "
 msgstr ""
 
-#: options.php:587
-#: options.php:624
+#: options.php:610
+#: options.php:647
 #, php-format
 msgid "Authenticated! Logged in as %s"
 msgstr ""
 
-#: options.php:589
-#: options.php:626
+#: options.php:612
+#: options.php:649
 #, php-format
 msgid "Authentication failed. HTTP status: %s"
 msgstr ""
 
-#: options.php:607
+#: options.php:630
 msgid "No token saved."
 msgstr ""
 
-#: options.php:649
+#: options.php:672
 msgid "You do not have permission to update plugins."
 msgstr ""
 
-#: options.php:656
+#: options.php:679
 msgid "Invalid request."
 msgstr ""
 
-#: options.php:694
+#: options.php:717
 msgid "Installation of selected release succeeded."
 msgstr ""
 
-#: options.php:697
-#: options.php:748
+#: options.php:720
+#: options.php:771
 msgid "Installation failed."
 msgstr ""
 
-#: options.php:708
+#: options.php:731
 msgid "You do not have permission to update themes."
 msgstr ""
 
-#: options.php:715
+#: options.php:738
 msgid "Invalid request (theme)."
 msgstr ""
 
-#: options.php:745
+#: options.php:768
 msgid "Theme installed/updated."
 msgstr ""
 
-#: rg-git-updater.php:495
+#: rg-git-updater.php:499
 msgid "RG Git Updater – GitHub token is no longer working"
 msgstr ""
 
-#: rg-git-updater.php:498
-msgid "Your GitHub token appears to be invalid or has expired."
+#: rg-git-updater.php:503
+#, php-format
+msgid "Your GitHub token on \"%s\" appears to be invalid or has expired."
 msgstr ""
 
-#: rg-git-updater.php:499
-msgid "Action: Go to Tools → GitHub Updates and update the token."
+#: rg-git-updater.php:507
+#, php-format
+msgid "Action: <a href=\"%s\">Go to Tools → GitHub Updates and update the token.</a>"
 msgstr ""
 
-#: rg-git-updater.php:500
+#: rg-git-updater.php:510
 msgid "Tip: Also verify the scopes (e.g. repo) if you need access to private repositories."
 msgstr ""
 
-#: rg-git-updater.php:501
+#: rg-git-updater.php:511
 msgid "Last checked:"
 msgstr ""
 
-#: rg-git-updater.php:502
+#: rg-git-updater.php:512
 msgid "Error at URL:"
 msgstr ""
 
-#: rg-git-updater.php:558
+#: rg-git-updater.php:568
 msgid "Could not create temporary file."
 msgstr ""
 
-#: rg-git-updater.php:580
+#: rg-git-updater.php:590
 #, php-format
 msgid "GitHub did not return a ZIP (Content-Type: %s). Check token/access and the release tag."
 msgstr ""
 
-#: rg-git-updater.php:586
+#: rg-git-updater.php:596
 #, php-format
 msgid "GitHub download failed (HTTP %s)."
 msgstr ""
 
-#: rg-git-updater.php:813
+#: rg-git-updater.php:823
 msgid "RG Git Updater: Your GitHub token appears invalid or has expired."
 msgstr ""
 
-#: rg-git-updater.php:814
+#: rg-git-updater.php:824
 msgid "Update the token here."
 msgstr ""

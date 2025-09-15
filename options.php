@@ -75,8 +75,20 @@ add_action('admin_menu', function () {
     __('GitHub Updates', 'rg-git-updater'),      // menu_title
     'update_core',                               // capability (alt: update_plugins)
     'rgplugins-settings',                        // slug (keep)
-    'rgplugins_settings_page'                    // callback
+    'rgplugins_settings_page',
+    plugin_dir_url(__FILE__) . 'assets/icon.png' // <- ikon för menyn
   );
+});
+
+// Ensure the submenu icon uses proper scaling for WP admin menu (20x20)
+add_action('admin_head', function() {
+  echo '<style>
+    #tools_page_rgplugins-settings .wp-menu-image img {
+      width: 20px !important;
+      height: 20px !important;
+      object-fit: contain;
+    }
+  </style>';
 });
 
 /**
@@ -558,7 +570,18 @@ add_action("admin_init", function () {
     'rgplugins_settings_section'
   );
 
-
+  // Debug mode (enable/disable logging)
+  register_setting('rgplugins_settings_group', 'rgplugins_debug_mode');
+  add_settings_field(
+    'rgplugins_debug_mode',
+    __('Debug mode', 'rg-git-updater'),
+    function () {
+      $val = get_option('rgplugins_debug_mode', '1');
+      echo '<label><input type="checkbox" name="rgplugins_debug_mode" value="1" ' . checked('1', $val, false) . '> ' . esc_html__('Enable logging for RG Git Updater', 'rg-git-updater') . '</label>';
+    },
+    'rgplugins-settings',
+    'rgplugins_settings_section'
+  );
 });
 
 // Hantera test av GitHub-token när knappen trycks

@@ -29,7 +29,11 @@ if (!function_exists('rg_updater_log')) {
    *
    * @param mixed $msg  Sträng/array/objekt som loggas (array/objekt pretty-printas).
    */
-  function rg_updater_log($msg) {
+function rg_updater_log($msg) {
+    // Only log if both WP_DEBUG and rgplugins_debug_mode are enabled
+    if (get_option('rgplugins_debug_mode', '0') !== '1') {
+      return;
+    }
     if (defined('WP_DEBUG') && WP_DEBUG) {
       if (is_array($msg) || is_object($msg)) {
         $msg = print_r($msg, true);
