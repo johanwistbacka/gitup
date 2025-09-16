@@ -1,0 +1,1 @@
+document.addEventListener("DOMContentLoaded",(function(){document.querySelectorAll(".rgplugins-toggle-details").forEach((function(t){t.addEventListener("click",(function(){var e=t.closest("tr").nextElementSibling;if(e&&e.classList.contains("rgplugins-details")){var n=e.classList.contains("open");e.classList.toggle("open"),t.setAttribute("aria-expanded",!n)}}))}))}));

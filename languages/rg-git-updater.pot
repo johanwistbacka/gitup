@@ -2,14 +2,14 @@
 # This file is distributed under the same license as the Rätt Grafiska Git Updater plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: Rätt Grafiska Git Updater 2025.09.15.01-beta\n"
+"Project-Id-Version: Rätt Grafiska Git Updater 2025.09.15.02-beta\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/rg-git-updater\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2025-09-15T08:22:06+00:00\n"
+"POT-Creation-Date: 2025-09-16T05:46:07+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: rg-git-updater\n"
@@ -34,136 +34,209 @@ msgstr ""
 msgid "Ratt Grafiska"
 msgstr ""
 
-#: index.php:49
-#: index.php:57
+#: index.php:70
+#: index.php:78
+#: options.php:194
 msgid "Settings"
 msgstr ""
 
 #: options.php:74
-msgid "GitHub Updates (RG)"
+msgid "GitUp – GitHub Updates"
 msgstr ""
 
 #: options.php:75
-msgid "GitHub Updates"
+#: options.php:189
+msgid "GitUp"
 msgstr ""
 
-#: options.php:180
-msgid "Git Updater (RG) ."
+#: options.php:191
+msgid "Manage GitHub-hosted plugin and theme updates for your WordPress site."
 msgstr ""
 
-#: options.php:185
+#: options.php:193
+msgid "Updates"
+msgstr ""
+
+#: options.php:201
 msgid "List refreshed from GitHub (cache bypassed)."
 msgstr ""
 
-#: options.php:190
+#: options.php:206
 msgid "Refresh list"
 msgstr ""
 
-#: options.php:254
-#: options.php:318
+#: options.php:208
+msgid "Plugins"
+msgstr ""
+
+#: options.php:212
+msgid "Plugin"
+msgstr ""
+
+#: options.php:213
+#: options.php:296
+msgid "Version"
+msgstr ""
+
+#: options.php:214
+#: options.php:297
+msgid "Select release"
+msgstr ""
+
+#: options.php:238
+#: options.php:324
+msgid "Show details"
+msgstr ""
+
+#: options.php:247
+#: options.php:333
 msgid "No releases found"
 msgstr ""
 
-#: options.php:272
-#: options.php:336
+#: options.php:271
+#: options.php:358
 msgid "Install"
 msgstr ""
 
-#: options.php:297
+#: options.php:279
+#: options.php:366
+msgid "Author:"
+msgstr ""
+
+#: options.php:281
+#: options.php:368
+msgid "Repository:"
+msgstr ""
+
+#: options.php:283
+#: options.php:370
+msgid "Latest release:"
+msgstr ""
+
+#: options.php:290
+msgid "Themes"
+msgstr ""
+
+#: options.php:295
+msgid "Theme"
+msgstr ""
+
+#: options.php:302
 msgid "No themes with a GitHub Update URI were found."
 msgstr ""
 
-#: options.php:371
+#: options.php:399
 msgid "Save settings"
 msgstr ""
 
-#: options.php:377
+#: options.php:401
 msgid "Test GitHub connection"
 msgstr ""
 
-#: options.php:542
+#: options.php:437
+msgid "Token expires at:"
+msgstr ""
+
+#: options.php:581
 msgid "Last verified:"
 msgstr ""
 
-#: options.php:550
+#: options.php:589
 msgid "Token updated:"
 msgstr ""
 
-#: options.php:551
+#: options.php:590
 #, php-format
 msgid "%s day ago"
 msgid_plural "%s days ago"
 msgstr[0] ""
 msgstr[1] ""
 
-#: options.php:564
-msgid "Allow pre-releases"
-msgstr ""
-
-#: options.php:567
-msgid "Show and update to beta/rc releases"
-msgstr ""
-
-#: options.php:577
-msgid "Debug mode"
-msgstr ""
-
-#: options.php:580
-msgid "Enable logging for RG Git Updater"
-msgstr ""
-
-#: options.php:590
-#: options.php:624
-msgid "You do not have permission."
-msgstr ""
-
-#: options.php:605
-#: options.php:641
-msgid "Connection error: "
+#: options.php:603
+#, php-format
+msgid "Expires in %d days"
 msgstr ""
 
 #: options.php:610
-#: options.php:647
+msgid "Token expiry:"
+msgstr ""
+
+#: options.php:616
+msgid "Token expired"
+msgstr ""
+
+#: options.php:621
+msgid "GitHub does not provide an expiry date for this token type."
+msgstr ""
+
+#: options.php:633
+msgid "Allow pre-releases"
+msgstr ""
+
+#: options.php:636
+msgid "Show and update to beta/rc releases"
+msgstr ""
+
+#: options.php:646
+msgid "Debug mode"
+msgstr ""
+
+#: options.php:649
+msgid "Enable logging for RG Git Updater"
+msgstr ""
+
+#: options.php:659
+#: options.php:702
+msgid "You do not have permission."
+msgstr ""
+
+#: options.php:674
+#: options.php:719
+msgid "Connection error: "
+msgstr ""
+
+#: options.php:686
+#: options.php:733
 #, php-format
 msgid "Authenticated! Logged in as %s"
 msgstr ""
 
-#: options.php:612
-#: options.php:649
+#: options.php:688
+#: options.php:739
 #, php-format
 msgid "Authentication failed. HTTP status: %s"
 msgstr ""
 
-#: options.php:630
+#: options.php:708
 msgid "No token saved."
 msgstr ""
 
-#: options.php:672
+#: options.php:762
 msgid "You do not have permission to update plugins."
 msgstr ""
 
-#: options.php:679
+#: options.php:769
 msgid "Invalid request."
 msgstr ""
 
-#: options.php:717
+#: options.php:807
 msgid "Installation of selected release succeeded."
 msgstr ""
 
-#: options.php:720
-#: options.php:771
+#: options.php:810
+#: options.php:861
 msgid "Installation failed."
 msgstr ""
 
-#: options.php:731
+#: options.php:821
 msgid "You do not have permission to update themes."
 msgstr ""
 
-#: options.php:738
+#: options.php:828
 msgid "Invalid request (theme)."
 msgstr ""
 
-#: options.php:768
+#: options.php:858
 msgid "Theme installed/updated."
 msgstr ""
 
@@ -213,4 +286,100 @@ msgstr ""
 
 #: rg-git-updater.php:824
 msgid "Update the token here."
+msgstr ""
+
+#: site-health.php:9
+msgid "GitHub Token Status"
+msgstr ""
+
+#: site-health.php:16
+msgid "No GitHub token set"
+msgstr ""
+
+#: site-health.php:19
+#: site-health.php:33
+#: site-health.php:46
+msgid "RG Git Updater"
+msgstr ""
+
+#: site-health.php:22
+msgid "Public repositories will work, but private repositories require a valid token."
+msgstr ""
+
+#: site-health.php:23
+#: site-health.php:210
+msgid "Go to settings"
+msgstr ""
+
+#: site-health.php:30
+msgid "GitHub token has not been verified recently"
+msgstr ""
+
+#: site-health.php:36
+msgid "Your token has not been verified in the last 30 days. Visit settings to re-test."
+msgstr ""
+
+#: site-health.php:37
+msgid "Re-test token"
+msgstr ""
+
+#: site-health.php:43
+msgid "GitHub token is valid"
+msgstr ""
+
+#: site-health.php:50
+#, php-format
+msgid "Token last verified on %s."
+msgstr ""
+
+#: site-health.php:61
+msgid "RG Git Updater status"
+msgstr ""
+
+#: site-health.php:89
+#: site-health.php:164
+#, php-format
+msgid "GitHub token verified %s ago"
+msgstr ""
+
+#: site-health.php:94
+#: site-health.php:168
+msgid "GitHub token saved, not verified"
+msgstr ""
+
+#: site-health.php:97
+#: site-health.php:171
+msgid "No GitHub token saved"
+msgstr ""
+
+#: site-health.php:150
+msgid "No GitHub token saved. Private repositories and higher API rate limits require a token."
+msgstr ""
+
+#: site-health.php:153
+msgid "GitHub token verification is old or missing. Please verify your token."
+msgstr ""
+
+#: site-health.php:157
+msgid "No recent release info could be loaded from GitHub. Check your token and network."
+msgstr ""
+
+#: site-health.php:179
+#, php-format
+msgid "Token last verified: %s"
+msgstr ""
+
+#: site-health.php:185
+#, php-format
+msgid "Token last updated: %s"
+msgstr ""
+
+#: site-health.php:192
+#, php-format
+msgid "Latest release cache for %s: <strong>%s</strong>"
+msgstr ""
+
+#: site-health.php:198
+#, php-format
+msgid "checked %s ago"
 msgstr ""

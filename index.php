@@ -2,7 +2,7 @@
 /*
 Plugin Name: Rätt Grafiska Git Updater
 Description: Handles automatic updates for Ratt Grafiska's plugins via GitHub.
-Version: 2025.09.15.02-beta
+Version: 2025.09.16.01-beta
 Author: Ratt Grafiska
 Plugin URI: https://github.com/Ratt-Grafiska/rg-git-updater
 Update URI: https://github.com/Ratt-Grafiska/rg-git-updater
@@ -33,13 +33,34 @@ if (!class_exists("RgGitUpdaterClass")) {
     });
 
     // Ladda själva uppdateringsmotorn och options-sidan
-    require_once plugin_dir_path(__FILE__) . "rg-git-updater.php";
-    require_once plugin_dir_path(__FILE__) . "options.php";
+require_once plugin_dir_path(__FILE__) . "rg-git-updater.php";
+require_once plugin_dir_path(__FILE__) . "options.php";
+require_once plugin_dir_path(__FILE__) . "site-health.php";
+
+// Enqueue plugin CSS and JS only on the settings page
+add_action('admin_enqueue_scripts', function($hook) {
+    $screen = get_current_screen();
+    if ($screen && $screen->id === 'tools_page_rgplugins-settings') {
+        wp_enqueue_style(
+            'rg-gitup-css',
+            plugin_dir_url(__FILE__) . 'assets/css/gitup.css',
+            [],
+            filemtime(plugin_dir_path(__FILE__) . 'assets/css/gitup.css')
+        );
+        wp_enqueue_script(
+            'rg-gitup-js',
+            plugin_dir_url(__FILE__) . 'assets/js/gitup.js',
+            ['jquery'],
+            filemtime(plugin_dir_path(__FILE__) . 'assets/js/gitup.js'),
+            true
+        );
+    }
+});
 
 }
 add_filter('plugin_row_meta', function ($links, $file) {
     if ($file === plugin_basename(__FILE__)) {
-        $icon_url = plugin_dir_url(__FILE__) . 'assets/icon.png';
+        $icon_url = plugin_dir_url(__FILE__) . 'assets/images/icon.png';
         array_unshift($links, '<img src="' . esc_url($icon_url) . '" style="width:20px;height:20px;vertical-align:middle;margin-right:4px;">');
     }
     return $links;
@@ -58,57 +79,3 @@ add_filter('plugin_row_meta', function($links, $file) {
     }
     return $links;
 }, 10, 2);
-
-// Site Health integration: token status
-add_filter('site_status_tests', function ($tests) {
-    $tests['direct']['rg_git_updater_token'] = [
-        'label' => __('GitHub Token Status', 'rg-git-updater'),
-        'test'  => function () {
-            $last_verified = intval(get_option('rgplugins_token_last_verified', 0));
-            $token        = get_option('rgplugins_github_token');
-
-            if (empty($token)) {
-                return [
-                    'label'       => __('No GitHub token set', 'rg-git-updater'),
-                    'status'      => 'recommended',
-                    'badge'       => [
-                        'label' => __('RG Git Updater', 'rg-git-updater'),
-                        'color' => 'blue',
-                    ],
-                    'description' => __('Public repositories will work, but private repositories require a valid token.', 'rg-git-updater'),
-                    'actions'     => sprintf('<a href="%s">%s</a>', esc_url(admin_url('tools.php?page=rgplugins-settings')), __('Go to settings', 'rg-git-updater')),
-                    'test'        => 'rg_git_updater_token',
-                ];
-            }
-
-            if (!$last_verified || $last_verified < (time() - 30 * DAY_IN_SECONDS)) {
-                return [
-                    'label'       => __('GitHub token has not been verified recently', 'rg-git-updater'),
-                    'status'      => 'recommended',
-                    'badge'       => [
-                        'label' => __('RG Git Updater', 'rg-git-updater'),
-                        'color' => 'orange',
-                    ],
-                    'description' => __('Your token has not been verified in the last 30 days. Visit settings to re-test.', 'rg-git-updater'),
-                    'actions'     => sprintf('<a href="%s">%s</a>', esc_url(admin_url('tools.php?page=rgplugins-settings')), __('Re-test token', 'rg-git-updater')),
-                    'test'        => 'rg_git_updater_token',
-                ];
-            }
-
-            return [
-                'label'       => __('GitHub token is valid', 'rg-git-updater'),
-                'status'      => 'good',
-                'badge'       => [
-                    'label' => __('RG Git Updater', 'rg-git-updater'),
-                    'color' => 'green',
-                ],
-                'description' => sprintf(
-                    __('Token last verified on %s.', 'rg-git-updater'),
-                    date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $last_verified)
-                ),
-                'test'        => 'rg_git_updater_token',
-            ];
-        }
-    ];
-    return $tests;
-});

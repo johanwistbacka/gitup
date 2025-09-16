@@ -1,0 +1,269 @@
+$color-accent: #338dca;
+$color-accent-hover: #0d47a1;
+$color-bg-alt: #338eca2d;
+$color-border: #ececec;
+$color-text: #333;
+$color-card-border: #ccd0d4;
+$color-card-shadow: rgba(0,0,0,0.08);
+
+.rgplugins-table { 
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 4px;
+
+  thead th {
+    font-weight: 600;
+    border-bottom: 1px solid $color-border;
+    background: transparent;
+    padding: 12px 14px;
+  }
+
+  tr {
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    transition: background-color 0.2s ease;
+
+    &:nth-child(even) {
+      background-color: $color-bg-alt;
+    }
+
+    &.has-update {
+      border-left: 4px solid $color-accent;
+      background-color: lighten($color-bg-alt, 2%);
+      border-radius: 4px;
+        .plugin {
+        border-left: 4px solid $color-accent;
+        }
+    }
+    &:hover {
+      background-color: lighten($color-bg-alt, 3%);
+    }
+  }
+
+  /* Reusable link style */
+  $link-truncate: (
+    white-space: nowrap,
+    overflow: hidden,
+    text-overflow: ellipsis,
+  );
+
+  /* Repo link: smaller font, ellipsis */
+  .repo a {
+    display: inline-block;
+    max-width: 360px;
+    font-size: 13px;
+    @each $prop, $value in $link-truncate {
+      #{$prop}: #{$value};
+    }
+  }
+
+  small {
+    font-size: .8rem;
+  }
+
+  td, th {
+    vertical-align: middle;
+    padding: 12px 14px;
+  }
+
+  td.version, th.version {
+    max-width: 150px !important;
+    @each $prop, $value in $link-truncate {
+      #{$prop}: #{$value};
+    }
+  }
+
+  td.actions, th.release {
+    justify-content: end;
+    text-align: right;
+  }
+
+  /* Actions form: horizontal stack */
+  td.actions form {
+    display: flex;
+    flex-direction: row;
+    justify-content: end;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  /* Compact select and button */
+  td.actions select,
+  td.actions .button {
+    padding: 3px 6px;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  td.actions select {
+    min-width: 160px;
+  }
+
+  td.actions .button {
+    white-space: nowrap;
+  }
+
+  /* Repo cell: reuse link truncate and font */
+  td.repo a {
+    font-size: 13px;
+    @each $prop, $value in $link-truncate {
+      #{$prop}: #{$value};
+    }
+  }
+
+  /* Toggle details button */
+  .rgplugins-toggle-details {
+    background: none;
+    border: none;
+    font-size: 17px;
+    cursor: pointer;
+    margin-right: 7px;
+    padding: 2px 6px 2px 2px;
+    vertical-align: middle;
+    color: $color-accent;
+    transition: color 0.2s;
+
+    &:hover,
+    &:focus {
+      color: $color-accent-hover;
+      outline: none;
+    }
+
+    &::after {
+      content: "▶";
+      display: inline-block;
+      margin-left: 4px;
+      transition: transform 0.2s ease;
+    }
+
+    &[aria-expanded="true"]::after {
+      transform: rotate(90deg);
+    }
+  }
+
+  /* Details row styling */
+  .rgplugins-details {
+    display: none;
+    transition: all 0.3s ease;
+
+    &.open {
+      display: table-row;
+    }
+
+    td {
+      background: $color-bg-alt;
+      padding: 18px 22px;
+      font-size: 14px;
+      color: $color-text;
+      border-top: 1px solid $color-border;
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+    }
+  }
+
+  /* Responsive: medium screens */
+  @media (max-width: 1020px) {
+    .repo a {
+      max-width: 220px;
+    }
+  }
+
+  /* Responsive: small screens - card layout */
+  @media (max-width: 782px) {
+    thead {
+      display: none;
+    }
+
+    tr {
+      display: block;
+      margin: 0 0 20px;
+      border: 1px solid $color-card-border;
+      border-radius: 4px;
+      background: #fff;
+      box-shadow: 0 2px 6px $color-card-shadow;
+      padding: 10px;
+    }
+
+    td {
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      border-top: 1px solid #f0f0f1;
+      padding: 12px 14px;
+
+      &:first-child {
+        border-top: 0;
+      }
+
+      &::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #1d2327;
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      &.actions {
+        display: block;
+
+        &::before {
+          content: attr(data-label);
+          display: block;
+          margin-bottom: 6px;
+          font-weight: 600;
+        }
+
+        form {
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 8px;
+        }
+
+        select,
+        .button {
+          width: 100%;
+        }
+
+        .button {
+          text-align: center;
+        }
+      }
+    }
+
+    .repo a {
+      white-space: normal;
+      word-break: break-word;
+    }
+
+    select, .button {
+      width: 100%;
+    }
+  }
+}
+
+#tools_page_rgplugins-settings .wp-menu-image img {
+  width: 20px !important;
+  height: 20px !important;
+  object-fit: contain;
+}
+
+.rgplugins-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+
+  img {
+    width: 40px;
+    height: 40px;
+  }
+
+  h1 {
+    margin: 0;
+  }
+}

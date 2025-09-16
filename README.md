@@ -1,5 +1,5 @@
 # rg-git-updater
-> **Version:** 2025.09.12.04-beta
+> **Version:** 2025.09.16.01-beta
  Hanterar automatiska uppdateringar för Ratt Grafiskas plugins via GitHub.
 
 # RG Git Updater
@@ -75,22 +75,39 @@ Loggen hittar du i `wp-content/debug.log`.
 
 ## Roadmap / TODO
 
-- [ ] Lägg till full översättningsstöd (textdomän i alla strängar, POT-fil).
-- [ ] Generera `.pot` via WP-CLI (`wp i18n make-pot`).
-- [ ] Förbättra UI för mobil (gör tabellen mer responsiv och knapparna bättre placerade).
+### Prioriterat nästa steg:
+- Lägg till WP-CLI-kommandon (`wp rg-updater check`, `wp rg-updater update`).
+- Lägg till knapp för att rensa cache för GitHub-responses direkt från admin.
+
 - [ ] Eventuell fallback till GitHub commits om inga releasetaggar finns.
 - [ ] Stöd för att välja release direkt från wp-admin/update-core.php.
-- [ ] Lägg till en ikon för tillägget (visas i WordPress admin pluginsida).
-- [ ] Lägg till en inställning för debug-läge så att loggar kan stängas av från admin.
-- [ ] Lägg till knapp för att rensa cache för GitHub-responses direkt från admin.
 - [ ] Stöd för GitHub-webhooks för att trigga uppdateringskontroll vid ny release.
 - [ ] Möjlighet att uppdatera alla plugins/teman i en batch från options-sidan.
 - [ ] Visa release notes, datum och länk till GitHub-release i UI.
-- [ ] Integrera med Site Health så att tokenstatus och uppdateringsfel visas där.
-- [ ] Lägg till WP-CLI-kommandon (`wp rg-updater check`, `wp rg-updater update`).
+- [x] Integrera med Site Health så att tokenstatus och uppdateringsfel visas där.
+- [x] Flyttat CSS, JS och bilder till `assets/`-struktur (`css`, `js`, `scss`, `images`).
+- [x] Flyttat Site Health-relaterad logik till egen fil `site-health.php`.
+- [x] Lagt till SVG-ikon för pluginet.
 - [ ] Flytta API-anrop till cron/AJAX för att snabba upp admin-sidor.
+- [x] Lagt till full översättningsstöd (textdomän i alla strängar, POT-fil).
+- [x] Genererat `.pot` via WP-CLI (`wp i18n make-pot`).
+- [x] Förbättrat UI för mobil (tabellen mer responsiv och knapparna bättre placerade).
 
 ## Changelog
+
+### 2025.09.16.01-beta
+- Förbättringar av UI för options-sidan (ikon, tabbar, mobilvänlighet).
+- Mindre justeringar av tabellutseende (randiga rader, highlight för uppdateringar).
+- Lagt till debug-läge (kan stänga av loggning via admin).
+- Flyttat CSS och JS till externa filer i assets/.
+- Token-expiration hanteras och visas i admin.
+
+### 2025.09.15.02-beta
+- Ny Site Health-integration: visar tokenstatus och varningar om token inte verifierats på 30 dagar.
+- Datumformat för token-verifiering lokaliserat med WordPress `date_i18n()`.
+- Lagt till debug-mode-inställning för att slå av/på loggning från admin.
+- Ikon tillagd för tillägget (både i pluginlistan och adminmenyn).
+- Settings-länk nu synlig på pluginsidan för snabb åtkomst.
 
 ### 2025.09.15.01-beta
 - E-postmeddelandet vid ogiltig token inkluderar nu sidans titel för tydligare kontext.

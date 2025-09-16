@@ -8,7 +8,7 @@
 <h1 id="rg-git-updater">rg-git-updater</h1>
 
 <blockquote>
-<p><strong>Version:</strong> 2025.09.12.04-beta
+<p><strong>Version:</strong> 2025.09.16.01-beta
 Hanterar automatiska uppdateringar för Ratt Grafiskas plugins via GitHub.</p>
 </blockquote>
 
@@ -125,15 +125,54 @@ Hanterar automatiska uppdateringar för Ratt Grafiskas plugins via GitHub.</p>
 
 <h2 id="roadmaptodo">Roadmap / TODO</h2>
 
+<h3 id="prioriteratnästasteg:">Prioriterat nästa steg:</h3>
+
 <ul>
-<li>[ ] Lägg till full översättningsstöd (textdomän i alla strängar, POT-fil).</li>
-<li>[ ] Generera <code>.pot</code> via WP-CLI (<code>wp i18n make-pot</code>).</li>
-<li>[ ] Förbättra UI för mobil (gör tabellen mer responsiv och knapparna bättre placerade).</li>
-<li>[ ] Eventuell fallback till GitHub commits om inga releasetaggar finns.</li>
-<li>[ ] Stöd för att välja release direkt från wp-admin/update-core.php.</li>
+<li><p>Lägg till WP-CLI-kommandon (<code>wp rg-updater check</code>, <code>wp rg-updater update</code>).</p></li>
+<li><p>Lägg till knapp för att rensa cache för GitHub-responses direkt från admin.</p></li>
+<li><p>[ ] Eventuell fallback till GitHub commits om inga releasetaggar finns.</p></li>
+<li><p>[ ] Stöd för att välja release direkt från wp-admin/update-core.php.</p></li>
+<li><p>[ ] Stöd för GitHub-webhooks för att trigga uppdateringskontroll vid ny release.</p></li>
+<li><p>[ ] Möjlighet att uppdatera alla plugins/teman i en batch från options-sidan.</p></li>
+<li><p>[ ] Visa release notes, datum och länk till GitHub-release i UI.</p></li>
+<li><p>[x] Integrera med Site Health så att tokenstatus och uppdateringsfel visas där.</p></li>
+<li><p>[x] Flyttat CSS, JS och bilder till <code>assets/</code>-struktur (<code>css</code>, <code>js</code>, <code>scss</code>, <code>images</code>).</p></li>
+<li><p>[x] Flyttat Site Health-relaterad logik till egen fil <code>site-health.php</code>.</p></li>
+<li><p>[x] Lagt till SVG-ikon för pluginet.</p></li>
+<li><p>[ ] Flytta API-anrop till cron/AJAX för att snabba upp admin-sidor.</p></li>
+<li><p>[x] Lagt till full översättningsstöd (textdomän i alla strängar, POT-fil).</p></li>
+<li><p>[x] Genererat <code>.pot</code> via WP-CLI (<code>wp i18n make-pot</code>).</p></li>
+<li><p>[x] Förbättrat UI för mobil (tabellen mer responsiv och knapparna bättre placerade).</p></li>
 </ul>
 
 <h2 id="changelog">Changelog</h2>
+
+<h3 id="2025.09.16.01-beta">2025.09.16.01-beta</h3>
+
+<ul>
+<li>Förbättringar av UI för options-sidan (ikon, tabbar, mobilvänlighet).</li>
+<li>Mindre justeringar av tabellutseende (randiga rader, highlight för uppdateringar).</li>
+<li>Lagt till debug-läge (kan stänga av loggning via admin).</li>
+<li>Flyttat CSS och JS till externa filer i assets/.</li>
+<li>Token-expiration hanteras och visas i admin.</li>
+</ul>
+
+<h3 id="2025.09.15.02-beta">2025.09.15.02-beta</h3>
+
+<ul>
+<li>Ny Site Health-integration: visar tokenstatus och varningar om token inte verifierats på 30 dagar.</li>
+<li>Datumformat för token-verifiering lokaliserat med WordPress <code>date_i18n()</code>.</li>
+<li>Lagt till debug-mode-inställning för att slå av/på loggning från admin.</li>
+<li>Ikon tillagd för tillägget (både i pluginlistan och adminmenyn).</li>
+<li>Settings-länk nu synlig på pluginsidan för snabb åtkomst.</li>
+</ul>
+
+<h3 id="2025.09.15.01-beta">2025.09.15.01-beta</h3>
+
+<ul>
+<li>E-postmeddelandet vid ogiltig token inkluderar nu sidans titel för tydligare kontext.</li>
+<li>Lagt till klickbar länk i e-postmeddelandet som leder direkt till Tools → GitHub Updates.</li>
+</ul>
 
 <h3 id="2025.09.12.04-beta">2025.09.12.04-beta</h3>
 

@@ -1,0 +1,219 @@
+@charset "UTF-8";
+.rgplugins-table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 4px;
+  /* Reusable link style */
+  /* Repo link: smaller font, ellipsis */
+  /* Actions form: horizontal stack */
+  /* Compact select and button */
+  /* Repo cell: reuse link truncate and font */
+  /* Toggle details button */
+  /* Details row styling */
+  /* Responsive: medium screens */
+  /* Responsive: small screens - card layout */
+}
+.rgplugins-table thead th {
+  font-weight: 600;
+  border-bottom: 1px solid #ececec;
+  background: transparent;
+  padding: 12px 14px;
+}
+.rgplugins-table tr {
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: background-color 0.2s ease;
+}
+.rgplugins-table tr:nth-child(even) {
+  background-color: rgba(51, 142, 202, 0.1764705882);
+}
+.rgplugins-table tr.has-update {
+  border-left: 4px solid #338dca;
+  background-color: rgba(58, 147, 205, 0.1764705882);
+  border-radius: 4px;
+}
+.rgplugins-table tr.has-update .plugin {
+  border-left: 4px solid #338dca;
+}
+.rgplugins-table tr:hover {
+  background-color: rgba(62, 149, 206, 0.1764705882);
+}
+.rgplugins-table .repo a {
+  display: inline-block;
+  max-width: 360px;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rgplugins-table small {
+  font-size: 0.8rem;
+}
+.rgplugins-table td, .rgplugins-table th {
+  vertical-align: middle;
+  padding: 12px 14px;
+}
+.rgplugins-table td.version, .rgplugins-table th.version {
+  max-width: 150px !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rgplugins-table td.actions, .rgplugins-table th.release {
+  justify-content: end;
+  text-align: right;
+}
+.rgplugins-table td.actions form {
+  display: flex;
+  flex-direction: row;
+  justify-content: end;
+  align-items: stretch;
+  gap: 8px;
+}
+.rgplugins-table td.actions select,
+.rgplugins-table td.actions .button {
+  padding: 3px 6px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.rgplugins-table td.actions select {
+  min-width: 160px;
+}
+.rgplugins-table td.actions .button {
+  white-space: nowrap;
+}
+.rgplugins-table td.repo a {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rgplugins-table .rgplugins-toggle-details {
+  background: none;
+  border: none;
+  font-size: 17px;
+  cursor: pointer;
+  margin-right: 7px;
+  padding: 2px 6px 2px 2px;
+  vertical-align: middle;
+  color: #338dca;
+  transition: color 0.2s;
+}
+.rgplugins-table .rgplugins-toggle-details:hover, .rgplugins-table .rgplugins-toggle-details:focus {
+  color: #0d47a1;
+  outline: none;
+}
+.rgplugins-table .rgplugins-toggle-details::after {
+  content: "▶";
+  display: inline-block;
+  margin-left: 4px;
+  transition: transform 0.2s ease;
+}
+.rgplugins-table .rgplugins-toggle-details[aria-expanded=true]::after {
+  transform: rotate(90deg);
+}
+.rgplugins-table .rgplugins-details {
+  display: none;
+  transition: all 0.3s ease;
+}
+.rgplugins-table .rgplugins-details.open {
+  display: table-row;
+}
+.rgplugins-table .rgplugins-details td {
+  background: rgba(51, 142, 202, 0.1764705882);
+  padding: 18px 22px;
+  font-size: 14px;
+  color: #333;
+  border-top: 1px solid #ececec;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
+@media (max-width: 1020px) {
+  .rgplugins-table .repo a {
+    max-width: 220px;
+  }
+}
+@media (max-width: 782px) {
+  .rgplugins-table thead {
+    display: none;
+  }
+  .rgplugins-table tr {
+    display: block;
+    margin: 0 0 20px;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    background: #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    padding: 10px;
+  }
+  .rgplugins-table td {
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+    border-top: 1px solid #f0f0f1;
+    padding: 12px 14px;
+  }
+  .rgplugins-table td:first-child {
+    border-top: 0;
+  }
+  .rgplugins-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #1d2327;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .rgplugins-table td.actions {
+    display: block;
+  }
+  .rgplugins-table td.actions::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .rgplugins-table td.actions form {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .rgplugins-table td.actions select,
+  .rgplugins-table td.actions .button {
+    width: 100%;
+  }
+  .rgplugins-table td.actions .button {
+    text-align: center;
+  }
+  .rgplugins-table .repo a {
+    white-space: normal;
+    word-break: break-word;
+  }
+  .rgplugins-table select, .rgplugins-table .button {
+    width: 100%;
+  }
+}
+
+#tools_page_rgplugins-settings .wp-menu-image img {
+  width: 20px !important;
+  height: 20px !important;
+  object-fit: contain;
+}
+
+.rgplugins-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.rgplugins-header img {
+  width: 40px;
+  height: 40px;
+}
+.rgplugins-header h1 {
+  margin: 0;
+}
