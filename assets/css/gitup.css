@@ -121,16 +121,18 @@
 }
 .rgplugins-table .rgplugins-details.open {
   display: table-row;
+  background: none;
 }
 .rgplugins-table .rgplugins-details td {
-  background: rgba(51, 142, 202, 0.1764705882);
-  padding: 18px 22px;
-  font-size: 14px;
-  color: #333;
-  border-top: 1px solid #ececec;
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
+  display: table-cell;
+  width: auto;
+  vertical-align: top;
+}
+.rgplugins-table .rgplugins-details td.summary {
+  width: 40%;
+}
+.rgplugins-table .rgplugins-details td.notes {
+  width: 60%;
 }
 @media (max-width: 1020px) {
   .rgplugins-table .repo a {
@@ -216,4 +218,8 @@
 }
 .rgplugins-header h1 {
   margin: 0;
+}
+
+.rg-changelog-body {
+  white-space: pre-line;
 }

@@ -77,6 +77,7 @@ Loggen hittar du i `wp-content/debug.log`.
 
 ### Prioriterat nästa steg:
 
+- [ ] Visa "Private repro" istället för "Inga releaser hittades" om felaktig/ingen token.
 - [ ] Visa release notes, datum och länk till GitHub-release i UI.
 - [ ] Fallback till GitHub commits om inga releasetaggar finns.
 - [ ] Flytta API-anrop till cron/AJAX för att snabba upp admin-sidor.

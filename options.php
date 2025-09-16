@@ -58,9 +58,12 @@ if (!function_exists('rgplugins_fetch_releases')) {
       if (!$include_prereleases && !empty($rel['prerelease'])) continue; // hoppa över prerelease om ej valt
       if (empty($rel['tag_name'])) continue;
       $releases[] = [
-        'tag' => $rel['tag_name'],
-        'name' => !empty($rel['name']) ? $rel['name'] : $rel['tag_name'],
+        'tag'        => $rel['tag_name'],
+        'name'       => !empty($rel['name']) ? $rel['name'] : $rel['tag_name'],
         'prerelease' => !empty($rel['prerelease']),
+        'url'        => $rel['html_url'] ?? '',
+        'published'  => $rel['published_at'] ?? '',
+        'body'       => $rel['body'] ?? '',
       ];
     }
     return $releases;
@@ -259,10 +262,16 @@ if (!function_exists("rgplugins_settings_page")) {
                               foreach ($releases as $rel) {
                                 $is_latest = ($rel['tag'] === $plugin['latest_release']);
                                 $prefix = '';
+                                // Markera senaste release om installerad version är äldre
                                 if ($is_latest && version_compare($plugin['version'], $plugin['latest_release'], '<')) {
                                   $prefix .= '⭐ ';
                                 }
+                                // Markera den release som är samma som installerad version
                                 if ($rel['tag'] === $plugin['version']) $prefix .= '✓ ';
+                                // Markera om release är äldre än installerad version
+                                if (version_compare($rel['tag'], $plugin['version'], '<')) {
+                                  $prefix .= '⬇ ';
+                                }
                                 $label = $prefix . $rel['tag'] . ($rel['prerelease'] ? ' (pre)' : '');
                                 echo '<option value="' . esc_attr($rel['tag']) . '">' . esc_html($label) . '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</option>';
                               }
@@ -273,15 +282,42 @@ if (!function_exists("rgplugins_settings_page")) {
                             }
                           ?>
                         </td>
+                        
                     </tr>
                     <tr class="rgplugins-details">
-                      <td colspan="3">
+                      <td class="summary">
                         <strong><?php esc_html_e('Author:', 'rg-git-updater'); ?></strong>
                         <?php echo esc_html($plugin['author']); ?><br>
                         <strong><?php esc_html_e('Repository:', 'rg-git-updater'); ?></strong>
                         <a href="<?php echo esc_url($plugin['github']); ?>" target="_blank"><?php echo esc_html($plugin['github']); ?></a><br>
                         <strong><?php esc_html_e('Latest release:', 'rg-git-updater'); ?></strong>
-                        <?php echo esc_html($plugin['latest_release']); ?>
+                        <?php if (!empty($releases[0]['tag'])): ?>
+                          <?php echo esc_html($releases[0]['tag']); ?>
+                          <?php if (!empty($releases[0]['url'])): ?>
+                            — <a href="<?php echo esc_url($releases[0]['url']); ?>" target="_blank">
+                              <?php echo esc_html__('View on GitHub', 'rg-git-updater'); ?>
+                            </a>
+                          <?php endif; ?>
+                        <?php else: ?>
+                          <?php esc_html_e('N/A', 'rg-git-updater'); ?>
+                        <?php endif; ?>
+                        <?php
+                        if (!empty($releases[0]['published'])) {
+                          $published_str = date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($releases[0]['published']));
+                          echo '<br><strong>' . esc_html__('Published:', 'rg-git-updater') . '</strong> ' . esc_html($published_str);
+                        }
+                        ?>
+                      </td>
+                      <td class="notes">
+                        <?php
+                          if (!empty($releases[0]['body'])) {
+                            // Output raw body, preserving HTML entities, allowing markdown formatting and line breaks.
+                            $raw_body = $releases[0]['body'];
+                            echo wpautop(make_clickable(wp_kses_post($raw_body)));
+                          } else {
+                            echo '<span style="opacity:.7">' . esc_html__('No release notes', 'rg-git-updater') . '</span>';
+                          }
+                        ?>
                       </td>
                     </tr>
                 <?php endforeach; ?>
@@ -299,7 +335,7 @@ if (!function_exists("rgplugins_settings_page")) {
             </thead>
             <tbody>
                 <?php if (empty($github_themes)): ?>
-                    <tr><td colspan="3" style="text-align:center; opacity:.7; padding:16px;"><?php echo esc_html__('No themes with a GitHub Update URI were found.', 'rg-git-updater'); ?></td></tr>
+                    <tr><td colspan="4" style="text-align:center; opacity:.7; padding:16px;"><?php echo esc_html__('No themes with a GitHub Update URI were found.', 'rg-git-updater'); ?></td></tr>
                 <?php else: ?>
                     <?php foreach ($github_themes as $theme): ?>
                         <?php
@@ -349,6 +385,9 @@ if (!function_exists("rgplugins_settings_page")) {
                                       $prefix .= '⭐ ';
                                     }
                                     if ($rel['tag'] === $theme['version']) $prefix .= '✓ ';
+                                    if (version_compare($rel['tag'], $theme['version'], '<')) {
+                                      $prefix .= '⬇ ';
+                                    }
                                     $label = $prefix . $rel['tag'] . ($rel['prerelease'] ? ' (pre)' : '');
                                     echo '<option value="' . esc_attr($rel['tag']) . '">' . esc_html($label) . '</option>';
                                   }
@@ -360,15 +399,42 @@ if (!function_exists("rgplugins_settings_page")) {
                                 }
                               ?>
                             </td>
+
                         </tr>
                         <tr class="rgplugins-details">
-                          <td colspan="3">
+                          <td class="summary">
                             <strong><?php esc_html_e('Author:', 'rg-git-updater'); ?></strong>
                             <?php echo esc_html($theme['author']); ?><br>
                             <strong><?php esc_html_e('Repository:', 'rg-git-updater'); ?></strong>
                             <a href="<?php echo esc_url($theme['github']); ?>" target="_blank"><?php echo esc_html($theme['github']); ?></a><br>
                             <strong><?php esc_html_e('Latest release:', 'rg-git-updater'); ?></strong>
-                            <?php echo esc_html($theme['latest_release']); ?>
+                            <?php if (!empty($releases[0]['tag'])): ?>
+                              <?php echo esc_html($releases[0]['tag']); ?>
+                              <?php if (!empty($releases[0]['url'])): ?>
+                                — <a href="<?php echo esc_url($releases[0]['url']); ?>" target="_blank">
+                                  <?php echo esc_html__('View on GitHub', 'rg-git-updater'); ?>
+                                </a>
+                              <?php endif; ?>
+                            <?php else: ?>
+                              <?php esc_html_e('N/A', 'rg-git-updater'); ?>
+                            <?php endif; ?>
+                            <?php
+                            if (!empty($releases[0]['published'])) {
+                              $published_str = date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($releases[0]['published']));
+                              echo '<br><strong>' . esc_html__('Published:', 'rg-git-updater') . '</strong> ' . esc_html($published_str);
+                            }
+                            ?>
+                          </td>
+                          <td class="notes">
+                            <?php
+                              if (!empty($releases[0]['body'])) {
+                                // Output raw body, preserving HTML entities, allowing markdown formatting and line breaks.
+                                $raw_body = $releases[0]['body'];
+                                echo wpautop(make_clickable(wp_kses_post($raw_body)));
+                              } else {
+                                echo '<span style="opacity:.7">' . esc_html__('No release notes', 'rg-git-updater') . '</span>';
+                              }
+                            ?>
                           </td>
                         </tr>
                     <?php endforeach; ?>

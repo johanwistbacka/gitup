@@ -36,7 +36,7 @@ if (!class_exists("RgGitUpdaterClass")) {
 require_once plugin_dir_path(__FILE__) . "rg-git-updater.php";
 require_once plugin_dir_path(__FILE__) . "options.php";
 require_once plugin_dir_path(__FILE__) . "site-health.php";
-
+require_once plugin_dir_path(__FILE__) . 'update-hooks.php';
 // Enqueue plugin CSS and JS only on the settings page
 add_action('admin_enqueue_scripts', function($hook) {
     $screen = get_current_screen();

@@ -2,8 +2,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rg-git-updater\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/rg-git-updater\n"
-"POT-Creation-Date: 2025-09-15T12:01:48+00:00\n"
-"PO-Revision-Date: 2025-09-15 14:03+0200\n"
+"POT-Creation-Date: 2025-09-16T12:26:58+00:00\n"
+"PO-Revision-Date: 2025-09-16 14:35+0200\n"
 "Last-Translator: Johan Wistbacka <johan@rattgrafiska.se>\n"
 "Language-Team: Rätt Grafiska\n"
 "Language: sv_SE\n"
@@ -35,193 +35,220 @@ msgstr ""
 #. Author of the plugin
 #: index.php
 msgid "Ratt Grafiska"
-msgstr "Rätt Grafiska"
+msgstr "Rätt Grafiska AB"
 
-#: index.php:49 index.php:57
+#: index.php:70 index.php:78 options.php:197
 msgid "Settings"
 msgstr "Inställningar"
 
-#: index.php:65
-msgid "GitHub Token Status"
-msgstr "GitHub Token Status."
-
-#: index.php:72
-msgid "No GitHub token set"
-msgstr "Inte token sparades."
-
-#: index.php:75 index.php:89 index.php:102
-#, fuzzy
-#| msgid "GitHub Updates"
-msgid "RG Git Updater"
+#: options.php:77
+msgid "GitUp – GitHub Updates"
 msgstr "GitUp"
 
-#: index.php:78
-msgid ""
-"Public repositories will work, but private repositories require a valid "
-"token."
-msgstr ""
-
-#: index.php:79
-msgid "Go to settings"
-msgstr "Gå till inställningar inställningar"
-
-#: index.php:86
-msgid "GitHub token has not been verified recently"
-msgstr ""
-
-#: index.php:92
-msgid ""
-"Your token has not been verified in the last 30 days. Visit settings to re-"
-"test."
-msgstr ""
-
-#: index.php:93
-msgid "Re-test token"
-msgstr ""
-
-#: index.php:99
-msgid "GitHub token is valid"
-msgstr ""
-
-#: index.php:106
-#, php-format
-msgid "Token last verified on %s."
-msgstr "Senast verifierad %s."
-
-#: options.php:74
-msgid "GitHub Updates (RG)"
-msgstr "GitHub Updates"
-
-#: options.php:75
-msgid "GitHub Updates"
+#: options.php:78 options.php:192
+msgid "GitUp"
 msgstr "GitUp"
 
-#: options.php:180
-msgid "Git Updater (RG) ."
-msgstr "GitUp."
+#: options.php:194
+msgid "Manage GitHub-hosted plugin and theme updates for your WordPress site."
+msgstr ""
+"Hantera plugin- och temauppdateringar på GitHub för din WordPress-webbplats."
 
-#: options.php:185
+#: options.php:196
+msgid "Updates"
+msgstr "Updateringar"
+
+#: options.php:204
 msgid "List refreshed from GitHub (cache bypassed)."
 msgstr "Listan uppdaterades från GitHub (cache bypassad)."
 
-#: options.php:190
+#: options.php:209
 msgid "Refresh list"
 msgstr "Uppdatera"
 
-#: options.php:360 options.php:438
-msgid "Show details"
-msgstr ""
+#: options.php:211
+msgid "Plugins"
+msgstr "Tillägg"
 
-#: options.php:370 options.php:448
+#: options.php:215
+msgid "Plugin"
+msgstr "Tillägg"
+
+#: options.php:216 options.php:332
+msgid "Version"
+msgstr "Version"
+
+#: options.php:217 options.php:333
+msgid "Select release"
+msgstr "Välj release"
+
+#: options.php:241 options.php:360
+msgid "Show details"
+msgstr "Visa detaljer"
+
+#: options.php:250 options.php:369
 msgid "No releases found"
 msgstr "Inga releaser hittades"
 
-#: options.php:395 options.php:473
+#: options.php:280 options.php:397
 msgid "Install"
 msgstr "Installera"
 
-#: options.php:403 options.php:481
+#: options.php:289 options.php:406
 msgid "Author:"
-msgstr ""
+msgstr "Författare:"
 
-#: options.php:405 options.php:483
+#: options.php:291 options.php:408
 msgid "Repository:"
-msgstr ""
+msgstr "Repository:"
 
-#: options.php:407 options.php:485
+#: options.php:293 options.php:410
 msgid "Latest release:"
-msgstr ""
+msgstr "Senaste släpp:"
 
-#: options.php:427
+#: options.php:298 options.php:415
+msgid "View on GitHub"
+msgstr "Visa på GitHub"
+
+#: options.php:302 options.php:419
+msgid "N/A"
+msgstr "N/A"
+
+#: options.php:307 options.php:424
+msgid "Published:"
+msgstr "Publicerad:"
+
+#: options.php:318 options.php:435
+msgid "No release notes"
+msgstr "Inga releaser hittades"
+
+#: options.php:326
+msgid "Themes"
+msgstr "Teman"
+
+#: options.php:331
+msgid "Theme"
+msgstr "Tema"
+
+#: options.php:338
 msgid "No themes with a GitHub Update URI were found."
 msgstr "Inga teman med en GitHub Update URI hittades."
 
-#: options.php:518
+#: options.php:465
 msgid "Save settings"
 msgstr "Spara inställningar"
 
-#: options.php:524
+#: options.php:467
 msgid "Test GitHub connection"
 msgstr "Testa GitHub-anslutning"
 
-#: options.php:689
+#: options.php:478
+msgid "Clear GitHub cache"
+msgstr "Renas GitHub-Cache"
+
+#: options.php:512
+msgid "Token expires at:"
+msgstr "Token går ut:"
+
+#: options.php:537
+msgid "GitHub cache cleared."
+msgstr "GitHub-cache rensat."
+
+#: options.php:663
 msgid "Last verified:"
 msgstr "Senast verifierad:"
 
-#: options.php:697
+#: options.php:671
 msgid "Token updated:"
 msgstr "Token uppdaterad:"
 
-#: options.php:698
+#: options.php:672
 #, php-format
 msgid "%s day ago"
 msgid_plural "%s days ago"
 msgstr[0] "%s dag sedan"
 msgstr[1] "%s dagar sedan"
 
-#: options.php:711
+#: options.php:685
+#, php-format
+msgid "Expires in %d days"
+msgstr "Går ut om %d dagar"
+
+#: options.php:692
+msgid "Token expiry:"
+msgstr "Token går ut:"
+
+#: options.php:698
+msgid "Token expired"
+msgstr "Token utgången"
+
+#: options.php:703
+msgid "GitHub does not provide an expiry date for this token type."
+msgstr "Det finns inget utgångsdatum för denna typ av token från GitHub."
+
+#: options.php:715
 msgid "Allow pre-releases"
 msgstr "Tillåt beta-versioner"
 
-#: options.php:714
+#: options.php:718
 msgid "Show and update to beta/rc releases"
 msgstr "Visa och uppdatera beta-versioner"
 
-#: options.php:724
+#: options.php:728
 msgid "Debug mode"
 msgstr "Felsökningsläge"
 
-#: options.php:727
+#: options.php:731
 msgid "Enable logging for RG Git Updater"
 msgstr "Aktivera loggning för RG Git Updater"
 
-#: options.php:737 options.php:771
+#: options.php:741 options.php:784 options.php:955
 msgid "You do not have permission."
 msgstr "Du har inte tillåtelse."
 
-#: options.php:752 options.php:788
+#: options.php:756 options.php:801
 msgid "Connection error: "
 msgstr "Anslutningsfel: "
 
-#: options.php:757 options.php:794
+#: options.php:768 options.php:815
 #, php-format
 msgid "Authenticated! Logged in as %s"
 msgstr "Authentiserad! Inloggad som %s"
 
-#: options.php:759 options.php:796
+#: options.php:770 options.php:821
 #, php-format
 msgid "Authentication failed. HTTP status: %s"
 msgstr "Autentisering misslyckades. HTTP-status: %s"
 
-#: options.php:777
+#: options.php:790
 msgid "No token saved."
 msgstr "Inte token sparades."
 
-#: options.php:819
+#: options.php:844
 msgid "You do not have permission to update plugins."
 msgstr "Du har inte tillåtelse att uppdatera tillägg."
 
-#: options.php:826
+#: options.php:851
 msgid "Invalid request."
 msgstr "Felaktig förfrågan."
 
-#: options.php:864
+#: options.php:889
 msgid "Installation of selected release succeeded."
 msgstr "Installation av valda släpp lyckades."
 
-#: options.php:867 options.php:918
+#: options.php:892 options.php:943
 msgid "Installation failed."
 msgstr "Installation misslyclads."
 
-#: options.php:878
+#: options.php:903
 msgid "You do not have permission to update themes."
 msgstr "Du har inte tillåtelse att uppdatera teman."
 
-#: options.php:885
+#: options.php:910
 msgid "Invalid request (theme)."
 msgstr "Felaktig förfrågan (tema)."
 
-#: options.php:915
+#: options.php:940
 msgid "Theme installed/updated."
 msgstr "Tema installerat/uppdaterat."
 
@@ -284,3 +311,135 @@ msgstr ""
 #: rg-git-updater.php:824
 msgid "Update the token here."
 msgstr "Uppdatera token här."
+
+#: site-health.php:9
+msgid "GitHub Token Status"
+msgstr "GitHub Token-status"
+
+#: site-health.php:16
+msgid "No GitHub token set"
+msgstr "Inte token sparades"
+
+#: site-health.php:19 site-health.php:33 site-health.php:46
+#, fuzzy
+#| msgid "GitHub Updates"
+msgid "RG Git Updater"
+msgstr "GitUp"
+
+#: site-health.php:22
+msgid ""
+"Public repositories will work, but private repositories require a valid "
+"token."
+msgstr ""
+"Offentliga repos fungerar utan problem, men för privata repos behövs en "
+"giltig token."
+
+#: site-health.php:23 site-health.php:210
+msgid "Go to settings"
+msgstr "Gå till inställningar inställningar"
+
+#: site-health.php:30
+msgid "GitHub token has not been verified recently"
+msgstr "GitHub token har inte verifierats på länge"
+
+#: site-health.php:36
+msgid ""
+"Your token has not been verified in the last 30 days. Visit settings to re-"
+"test."
+msgstr ""
+"Din token har inte verifierats på 30 dagar. Besök inställningar för att "
+"testa."
+
+#: site-health.php:37
+msgid "Re-test token"
+msgstr "Testa token"
+
+#: site-health.php:43
+msgid "GitHub token is valid"
+msgstr "GitHub token är ok"
+
+#: site-health.php:50
+#, php-format
+msgid "Token last verified on %s."
+msgstr "Senast verifierad %s."
+
+#: site-health.php:61
+msgid "RG Git Updater status"
+msgstr "GitUp"
+
+#: site-health.php:89 site-health.php:164
+#, php-format
+msgid "GitHub token verified %s ago"
+msgstr "GitHub token verifierades %s sedan"
+
+#: site-health.php:94 site-health.php:168
+msgid "GitHub token saved, not verified"
+msgstr "Token sparades men har inte verifierats"
+
+#: site-health.php:97 site-health.php:171
+msgid "No GitHub token saved"
+msgstr "Ingen token sparades"
+
+#: site-health.php:150
+msgid ""
+"No GitHub token saved. Private repositories and higher API rate limits "
+"require a token."
+msgstr ""
+"Ingen GitHub-token sparad. Privata arkiv och högre API-gränser kräver en "
+"token."
+
+#: site-health.php:153
+msgid "GitHub token verification is old or missing. Please verify your token."
+msgstr ""
+"Verifieringen av GitHub-token är gammal eller saknas. Vänligen verifiera din "
+"token."
+
+#: site-health.php:157
+msgid ""
+"No recent release info could be loaded from GitHub. Check your token and "
+"network."
+msgstr ""
+"Ingen aktuell release-information kunde hämtas från GitHub. Kontrollera din "
+"token och nätverksanslutning."
+
+#: site-health.php:179
+#, php-format
+msgid "Token last verified: %s"
+msgstr "Senast verifierad %s"
+
+#: site-health.php:185
+#, php-format
+msgid "Token last updated: %s"
+msgstr "Senast verifierad %s"
+
+#: site-health.php:192
+#, php-format
+msgid "Latest release cache for %s: <strong>%s</strong>"
+msgstr "Senaste release-cache för %s: <strong>%s</strong>"
+
+#: site-health.php:198
+#, php-format
+msgid "checked %s ago"
+msgstr "kontrollerad %s sedan"
+
+#: update-hooks.php:64
+msgid "No details provided for this release."
+msgstr "Ingen info för denna release."
+
+#: update-hooks.php:69
+msgid "View all releases on GitHub"
+msgstr "Visa alla releaser på GitHub"
+
+#: update-hooks.php:71
+msgid "No changelog provided."
+msgstr "Ingen ändringslogg tillgänglig."
+
+#: update-hooks.php:104
+msgid "View details"
+msgstr "Visa detaljer"
+
+#~ msgid "GitHub Updates (RG)"
+#~ msgstr "GitHub Updates"
+
+#~ msgid "Git Updater (RG) ."
+#~ msgstr "GitUp."

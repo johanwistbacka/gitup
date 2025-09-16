@@ -151,18 +151,20 @@ $color-card-shadow: rgba(0,0,0,0.08);
 
     &.open {
       display: table-row;
+      background: none;
     }
 
-    td {
-      background: $color-bg-alt;
-      padding: 18px 22px;
-      font-size: 14px;
-      color: $color-text;
-      border-top: 1px solid $color-border;
-      display: block;
-      width: 100%;
-      box-sizing: border-box;
-    }
+     td {
+  display: table-cell;
+  width: auto;
+  vertical-align: top;
+
+&.summary {
+  width: 40%;
+}
+&.notes {
+  width: 60%;
+}}
   }
 
   /* Responsive: medium screens */
@@ -266,4 +268,7 @@ $color-card-shadow: rgba(0,0,0,0.08);
   h1 {
     margin: 0;
   }
+}
+.rg-changelog-body {
+  white-space: pre-line;
 }

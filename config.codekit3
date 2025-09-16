@@ -210,6 +210,14 @@
       "oA" : 0,
       "oAP" : "\/site-health.php",
       "oF" : 0
+    },
+    "\/update-hooks.php" : {
+      "cB" : 0,
+      "ft" : 8192,
+      "hM" : 0,
+      "oA" : 0,
+      "oAP" : "\/update-hooks.php",
+      "oF" : 0
     }
   },
   "hooks" : [

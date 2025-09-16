@@ -2,14 +2,14 @@
 # This file is distributed under the same license as the Rätt Grafiska Git Updater plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: Rätt Grafiska Git Updater 2025.09.15.02-beta\n"
+"Project-Id-Version: Rätt Grafiska Git Updater 2025.09.16.02-beta\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/rg-git-updater\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2025-09-16T05:46:07+00:00\n"
+"POT-Creation-Date: 2025-09-16T12:26:58+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: rg-git-updater\n"
@@ -36,207 +36,236 @@ msgstr ""
 
 #: index.php:70
 #: index.php:78
-#: options.php:194
+#: options.php:197
 msgid "Settings"
 msgstr ""
 
-#: options.php:74
+#: options.php:77
 msgid "GitUp – GitHub Updates"
 msgstr ""
 
-#: options.php:75
-#: options.php:189
+#: options.php:78
+#: options.php:192
 msgid "GitUp"
 msgstr ""
 
-#: options.php:191
+#: options.php:194
 msgid "Manage GitHub-hosted plugin and theme updates for your WordPress site."
 msgstr ""
 
-#: options.php:193
+#: options.php:196
 msgid "Updates"
 msgstr ""
 
-#: options.php:201
+#: options.php:204
 msgid "List refreshed from GitHub (cache bypassed)."
 msgstr ""
 
-#: options.php:206
+#: options.php:209
 msgid "Refresh list"
 msgstr ""
 
-#: options.php:208
+#: options.php:211
 msgid "Plugins"
 msgstr ""
 
-#: options.php:212
+#: options.php:215
 msgid "Plugin"
 msgstr ""
 
-#: options.php:213
-#: options.php:296
+#: options.php:216
+#: options.php:332
 msgid "Version"
 msgstr ""
 
-#: options.php:214
-#: options.php:297
+#: options.php:217
+#: options.php:333
 msgid "Select release"
 msgstr ""
 
-#: options.php:238
-#: options.php:324
+#: options.php:241
+#: options.php:360
 msgid "Show details"
 msgstr ""
 
-#: options.php:247
-#: options.php:333
+#: options.php:250
+#: options.php:369
 msgid "No releases found"
 msgstr ""
 
-#: options.php:271
-#: options.php:358
+#: options.php:280
+#: options.php:397
 msgid "Install"
 msgstr ""
 
-#: options.php:279
-#: options.php:366
+#: options.php:289
+#: options.php:406
 msgid "Author:"
 msgstr ""
 
-#: options.php:281
-#: options.php:368
+#: options.php:291
+#: options.php:408
 msgid "Repository:"
 msgstr ""
 
-#: options.php:283
-#: options.php:370
+#: options.php:293
+#: options.php:410
 msgid "Latest release:"
 msgstr ""
 
-#: options.php:290
-msgid "Themes"
-msgstr ""
-
-#: options.php:295
-msgid "Theme"
+#: options.php:298
+#: options.php:415
+msgid "View on GitHub"
 msgstr ""
 
 #: options.php:302
+#: options.php:419
+msgid "N/A"
+msgstr ""
+
+#: options.php:307
+#: options.php:424
+msgid "Published:"
+msgstr ""
+
+#: options.php:318
+#: options.php:435
+msgid "No release notes"
+msgstr ""
+
+#: options.php:326
+msgid "Themes"
+msgstr ""
+
+#: options.php:331
+msgid "Theme"
+msgstr ""
+
+#: options.php:338
 msgid "No themes with a GitHub Update URI were found."
 msgstr ""
 
-#: options.php:399
+#: options.php:465
 msgid "Save settings"
 msgstr ""
 
-#: options.php:401
+#: options.php:467
 msgid "Test GitHub connection"
 msgstr ""
 
-#: options.php:437
+#: options.php:478
+msgid "Clear GitHub cache"
+msgstr ""
+
+#: options.php:512
 msgid "Token expires at:"
 msgstr ""
 
-#: options.php:581
+#: options.php:537
+msgid "GitHub cache cleared."
+msgstr ""
+
+#: options.php:663
 msgid "Last verified:"
 msgstr ""
 
-#: options.php:589
+#: options.php:671
 msgid "Token updated:"
 msgstr ""
 
-#: options.php:590
+#: options.php:672
 #, php-format
 msgid "%s day ago"
 msgid_plural "%s days ago"
 msgstr[0] ""
 msgstr[1] ""
 
-#: options.php:603
+#: options.php:685
 #, php-format
 msgid "Expires in %d days"
 msgstr ""
 
-#: options.php:610
+#: options.php:692
 msgid "Token expiry:"
 msgstr ""
 
-#: options.php:616
+#: options.php:698
 msgid "Token expired"
 msgstr ""
 
-#: options.php:621
+#: options.php:703
 msgid "GitHub does not provide an expiry date for this token type."
 msgstr ""
 
-#: options.php:633
+#: options.php:715
 msgid "Allow pre-releases"
 msgstr ""
 
-#: options.php:636
+#: options.php:718
 msgid "Show and update to beta/rc releases"
 msgstr ""
 
-#: options.php:646
+#: options.php:728
 msgid "Debug mode"
 msgstr ""
 
-#: options.php:649
+#: options.php:731
 msgid "Enable logging for RG Git Updater"
 msgstr ""
 
-#: options.php:659
-#: options.php:702
+#: options.php:741
+#: options.php:784
+#: options.php:955
 msgid "You do not have permission."
 msgstr ""
 
-#: options.php:674
-#: options.php:719
+#: options.php:756
+#: options.php:801
 msgid "Connection error: "
 msgstr ""
 
-#: options.php:686
-#: options.php:733
+#: options.php:768
+#: options.php:815
 #, php-format
 msgid "Authenticated! Logged in as %s"
 msgstr ""
 
-#: options.php:688
-#: options.php:739
+#: options.php:770
+#: options.php:821
 #, php-format
 msgid "Authentication failed. HTTP status: %s"
 msgstr ""
 
-#: options.php:708
+#: options.php:790
 msgid "No token saved."
 msgstr ""
 
-#: options.php:762
+#: options.php:844
 msgid "You do not have permission to update plugins."
 msgstr ""
 
-#: options.php:769
+#: options.php:851
 msgid "Invalid request."
 msgstr ""
 
-#: options.php:807
+#: options.php:889
 msgid "Installation of selected release succeeded."
 msgstr ""
 
-#: options.php:810
-#: options.php:861
+#: options.php:892
+#: options.php:943
 msgid "Installation failed."
 msgstr ""
 
-#: options.php:821
+#: options.php:903
 msgid "You do not have permission to update themes."
 msgstr ""
 
-#: options.php:828
+#: options.php:910
 msgid "Invalid request (theme)."
 msgstr ""
 
-#: options.php:858
+#: options.php:940
 msgid "Theme installed/updated."
 msgstr ""
 
@@ -382,4 +411,20 @@ msgstr ""
 #: site-health.php:198
 #, php-format
 msgid "checked %s ago"
+msgstr ""
+
+#: update-hooks.php:64
+msgid "No details provided for this release."
+msgstr ""
+
+#: update-hooks.php:69
+msgid "View all releases on GitHub"
+msgstr ""
+
+#: update-hooks.php:71
+msgid "No changelog provided."
+msgstr ""
+
+#: update-hooks.php:104
+msgid "View details"
 msgstr ""
