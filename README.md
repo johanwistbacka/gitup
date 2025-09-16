@@ -1,5 +1,5 @@
 # rg-git-updater
-> **Version:** 2025.09.16.01-beta
+> **Version:** 2025.09.16.02-beta
  Hanterar automatiska uppdateringar för Ratt Grafiskas plugins via GitHub.
 
 # RG Git Updater
@@ -95,12 +95,18 @@ Loggen hittar du i `wp-content/debug.log`.
 
 ## Changelog
 
+### 2025.09.16.02-beta
+- Added cache clearing button in admin to manually flush GitHub API cache.
+
 ### 2025.09.16.01-beta
 - Förbättringar av UI för options-sidan (ikon, tabbar, mobilvänlighet).
 - Mindre justeringar av tabellutseende (randiga rader, highlight för uppdateringar).
 - Lagt till debug-läge (kan stänga av loggning via admin).
 - Flyttat CSS och JS till externa filer i assets/.
 - Token-expiration hanteras och visas i admin.
+- Optimized SCSS (variables, striped rows, has-update styling).
+- Improved table layout (better responsiveness, icons for latest/installed versions).
+- UI polish: integrated SVG icon into options page header.
 
 ### 2025.09.15.02-beta
 - Ny Site Health-integration: visar tokenstatus och varningar om token inte verifierats på 30 dagar.

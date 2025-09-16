@@ -402,6 +402,15 @@ if (!function_exists("rgplugins_settings_page")) {
             echo '<span id="rgplugins-test-ajax-status" style="margin-left:8px;"></span>';
             ?>
         </form>
+        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-top:16px;">
+            <?php
+                // Nonce för cache-clear
+                $nonce = wp_create_nonce('rgplugins_clear_cache');
+            ?>
+            <input type="hidden" name="action" value="rgplugins_clear_cache">
+            <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce); ?>">
+            <?php submit_button(__('Clear GitHub cache', 'rg-git-updater'), 'secondary', 'submit', false); ?>
+        </form>
         <script>
         (function(){
           // Liten AJAX-testknapp för att verifiera token utan att lämna sidan
@@ -455,6 +464,13 @@ if (!function_exists("rgplugins_settings_page")) {
     <?php
   }
 }
+
+// Visa notice om cache rensats
+add_action('admin_notices', function () {
+  if (isset($_GET['rgplugins_cache_cleared']) && $_GET['rgplugins_cache_cleared'] == '1') {
+    echo '<div class="updated notice is-dismissible"><p>' . esc_html__('GitHub cache cleared.', 'rg-git-updater') . '</p></div>';
+  }
+});
 
 /**
  * Global helper (UI): hämta senaste tag från GitHub med cache + prerelease-stöd.
@@ -863,5 +879,31 @@ add_action('admin_post_rgthemes_install_release', function () {
   }
 
   wp_safe_redirect(add_query_arg(['page' => 'rgplugins-settings', 'rgplugins_msg' => urlencode($msg), 'ok' => $ok], admin_url('tools.php')));
+  exit;
+});
+
+
+// Admin-post handler: rensa GitHub-release-cache
+add_action('admin_post_rgplugins_clear_cache', function() {
+  if (!current_user_can('manage_options')) {
+    wp_die(__('You do not have permission.', 'rg-git-updater'));
+  }
+  check_admin_referer('rgplugins_clear_cache');
+  global $wpdb;
+  // Ta bort alla transients som börjar på github_release_
+  $wpdb->query(
+    $wpdb->prepare(
+      "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+      '_transient_github_release_%',
+      '_transient_timeout_github_release_%'
+    )
+  );
+  // Redirect tillbaka till settings med notice
+  $redirect_url = add_query_arg([
+    'page' => 'rgplugins-settings',
+    'tab' => 'settings',
+    'rgplugins_cache_cleared' => '1'
+  ], admin_url('tools.php'));
+  wp_safe_redirect($redirect_url);
   exit;
 });
