@@ -8,13 +8,13 @@
 <h1 id="rg-git-updater">rg-git-updater</h1>
 
 <blockquote>
-<p><strong>Version:</strong> 2025.09.16.02-beta
-Hanterar automatiska uppdateringar för Ratt Grafiskas plugins via GitHub.</p>
+<p><strong>Version:</strong> 2025.09.17.01-beta
+Hanterar automatiska uppdateringar för plugins via GitHub.</p>
 </blockquote>
 
 <h1 id="rggitupdater">RG Git Updater</h1>
 
-<p>En WordPress-plugin som hanterar <strong>automatiska uppdateringar</strong> för Rätt Grafiskas plugins och teman via <strong>GitHub Releases</strong>.</p>
+<p>En WordPress-plugin som hanterar <strong>automatiska uppdateringar</strong> för plugins och teman via <strong>GitHub Releases</strong>.</p>
 
 <h2 id="funktioner">Funktioner</h2>
 
@@ -37,6 +37,17 @@ Hanterar automatiska uppdateringar för Ratt Grafiskas plugins via GitHub.</p>
 <li>Klona eller ladda ner detta repo till <code>wp-content/plugins/rg-git-updater</code>.</li>
 <li>Aktivera tillägget i WordPress admin.</li>
 <li>Navigera till <strong>Verktyg → GitHub-uppdateringar</strong> för att konfigurera.</li>
+</ol>
+
+<h2 id="skärmdumpar">Skärmdumpar</h2>
+
+<ol>
+<li><p>Inställningssidan – visar installerade plugins/teman, versioner och dropdown för releaser.<br />
+<img src="assets/images/screenshots/settings.png" alt="Inställningssidan" /></p></li>
+<li><p>Uppdateringsfliken – hur pluginet visas under <strong>wp-admin/update-core.php</strong> med release notes.<br />
+<img src="assets/images/screenshots/update-core.png" alt="Update-core" /></p></li>
+<li><p>Pluginlistan – ikon, version, &#8220;Visa uppgifter&#8221;-länk och tokenvarning.<br />
+<img src="assets/images/screenshots/plugin-list.png" alt="Pluginlistan" /></p></li>
 </ol>
 
 <h2 id="konfiguration">Konfiguration</h2>
@@ -128,11 +139,9 @@ Hanterar automatiska uppdateringar för Ratt Grafiskas plugins via GitHub.</p>
 <h3 id="prioriteratnästasteg:">Prioriterat nästa steg:</h3>
 
 <ul>
-<li>[ ] Visa &#8220;Private repro&#8221; istället för &#8220;Inga releaser hittades&#8221; om felaktig/ingen token.</li>
-<li>[ ] Visa release notes, datum och länk till GitHub-release i UI.</li>
-<li>[ ] Fallback till GitHub commits om inga releasetaggar finns.</li>
 <li>[ ] Flytta API-anrop till cron/AJAX för att snabba upp admin-sidor.</li>
-<li>[ ] Möjlighet att uppdatera alla plugins/teman i en batch från options-sidan.</li>
+<li>[ ] Visa &#8220;Private repro&#8221; istället för &#8220;Inga releaser hittades&#8221; om felaktig/ingen token.</li>
+<li>[x] Visa release notes, datum och länk till GitHub-release i UI.</li>
 <li>[x] Integrera med Site Health så att tokenstatus och uppdateringsfel visas där.</li>
 <li>[x] Flyttat CSS, JS och bilder till <code>assets/</code>-struktur (<code>css</code>, <code>js</code>, <code>scss</code>, <code>images</code>).</li>
 <li>[x] Flyttat Site Health-relaterad logik till egen fil <code>site-health.php</code>.</li>
@@ -148,9 +157,24 @@ Hanterar automatiska uppdateringar för Ratt Grafiskas plugins via GitHub.</p>
 <li>Stöd för att välja release direkt från wp-admin/update-core.php (avviker från WordPress-standard, så ej prioriterad).</li>
 <li>Stöd för GitHub-webhooks för att trigga uppdateringskontroll vid ny release.</li>
 <li>Lägg till WP-CLI-kommandon (<code>wp rg-updater check</code>, <code>wp rg-updater update</code>).</li>
+<li>Fallback till GitHub commits om inga releasetaggar finns.</li>
+<li>Möjlighet att uppdatera alla plugins/teman i en batch från options-sidan.</li>
 </ul>
 
 <h2 id="changelog">Changelog</h2>
+
+<h3 id="2025.09.17.01-beta">2025.09.17.01-beta</h3>
+
+<ul>
+<li>Added support for theme releases in options page (now shows dropdown, latest release, and release notes like plugins).</li>
+<li>Unified release notes handling (consistent across plugins, themes, update-core).</li>
+<li>Improved button labeling in options page (now shows Update, Downgrade, Reinstall depending on selection).</li>
+<li>Added CSS classes (<code>update</code>, <code>downgrade</code>, <code>reinstall</code>) to buttons and rows for easier styling.</li>
+<li>Added left border highlight on rows based on update type.</li>
+<li>Improved details row layout: summary and release notes now in two columns.</li>
+<li>Fixed handling of missing releases: shows clearer messages.</li>
+<li>Various JS improvements for version dropdowns (logs, comparisons, live label updates).</li>
+</ul>
 
 <h3 id="2025.09.16.02-beta">2025.09.16.02-beta</h3>
 
@@ -212,6 +236,20 @@ Hanterar automatiska uppdateringar för Ratt Grafiskas plugins via GitHub.</p>
 <h2 id="licens">Licens</h2>
 
 <p>MIT – se <a href="LICENSE">LICENSE</a></p>
+
+<h2 id="releaseguide">Release Guide</h2>
+
+<p>För att göra en release, följ dessa steg:</p>
+
+<ol>
+<li>Uppdatera versionsnumret i pluginets huvudfil (<code>rg-git-updater.php</code>) och i <code>README.md</code> under versionstaggen.</li>
+<li>Commit:a ändringarna med ett beskrivande meddelande, t.ex. &#8220;Bump version to x.y.z&#8221;.</li>
+<li>Skapa en Git-tag med versionsnumret, t.ex. <code>git tag -a x.y.z -m &quot;Release x.y.z&quot;</code>.</li>
+<li>Pusha både commit och tag till GitHub: <code>git push origin main --tags</code>.</li>
+<li>Gå till GitHub och skapa en ny release baserad på taggen, fyll i release notes.</li>
+<li>Verifiera att releasen syns korrekt i pluginets inställningssida och att uppdateringar fungerar som förväntat.</li>
+<li>Testa eventuella ändringar i UI och funktionalitet, samt kontrollera loggar vid behov.</li>
+</ol>
 
 </body>
 </html>

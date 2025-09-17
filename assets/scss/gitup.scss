@@ -1,6 +1,6 @@
 $color-accent: #338dca;
 $color-accent-hover: #0d47a1;
-$color-bg-alt: #338eca2d;
+$color-bg-alt: #338eca10;
 $color-border: #ececec;
 $color-text: #333;
 $color-card-border: #ccd0d4;
@@ -25,22 +25,35 @@ $color-card-shadow: rgba(0,0,0,0.08);
     border-radius: 4px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     transition: background-color 0.2s ease;
-
+    /* Removed striped backgrounds for all tr, now handled by tr.row below */
+    /*
     &:nth-child(even) {
       background-color: $color-bg-alt;
     }
-
-    &.has-update {
-      border-left: 4px solid $color-accent;
-      background-color: lighten($color-bg-alt, 2%);
-      border-radius: 4px;
-        .plugin {
-        border-left: 4px solid $color-accent;
-        }
+    &:nth-child(3n+1) {
+      background-color: $color-bg-alt;
     }
+    */
     &:hover {
       background-color: lighten($color-bg-alt, 3%);
     }
+  }
+
+  // New row striping: every 5th row gets alternate background
+  tbody tr.row.even {
+    background-color: $color-bg-alt;
+  }
+  tbody tr.row.odd{
+    background-color: #fff;
+  }
+  tbody tr.row.update td:first-child{
+    border-left: 4px solid $color-accent-hover;
+  }
+  tbody tr.row.downgrade td:first-child{
+    border-left: 4px solid red;
+  }
+  tbody tr.row.reinstall td:first-child{
+    border-left: 4px solid $color-accent;
   }
 
   /* Reusable link style */
@@ -85,7 +98,7 @@ $color-card-shadow: rgba(0,0,0,0.08);
   td.actions form {
     display: flex;
     flex-direction: row;
-    justify-content: end;
+    justify-content: space-between;
     align-items: stretch;
     gap: 8px;
   }

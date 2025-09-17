@@ -49,22 +49,50 @@ if (!function_exists('rgplugins_fetch_releases')) {
     if ((int) wp_remote_retrieve_response_code($response) !== 200) return [];
 
     $data = json_decode(wp_remote_retrieve_body($response), true);
-    if (!is_array($data)) return [];
-
-    // Normalisera svaret till en kompakt lista vi kan rendera i dropdownen
     $releases = [];
-    foreach ($data as $rel) {
-      if (!empty($rel['draft'])) continue; // hoppa över draft
-      if (!$include_prereleases && !empty($rel['prerelease'])) continue; // hoppa över prerelease om ej valt
-      if (empty($rel['tag_name'])) continue;
-      $releases[] = [
-        'tag'        => $rel['tag_name'],
-        'name'       => !empty($rel['name']) ? $rel['name'] : $rel['tag_name'],
-        'prerelease' => !empty($rel['prerelease']),
-        'url'        => $rel['html_url'] ?? '',
-        'published'  => $rel['published_at'] ?? '',
-        'body'       => $rel['body'] ?? '',
-      ];
+    if (is_array($data)) {
+      // Normalisera svaret till en kompakt lista vi kan rendera i dropdownen
+      foreach ($data as $rel) {
+        if (!empty($rel['draft'])) continue; // hoppa över draft
+        if (!$include_prereleases && !empty($rel['prerelease'])) continue; // hoppa över prerelease om ej valt
+        if (empty($rel['tag_name'])) continue;
+        $releases[] = [
+          'tag'        => $rel['tag_name'],
+          'name'       => !empty($rel['name']) ? $rel['name'] : $rel['tag_name'],
+          'prerelease' => !empty($rel['prerelease']),
+          'url'        => $rel['html_url'] ?? '',
+          'published'  => $rel['published_at'] ?? '',
+          'body'       => $rel['body'] ?? '',
+        ];
+      }
+    }
+    // Fallback: Om inga releases hittades, hämta tags istället
+    if (empty($releases)) {
+      $tags_url = 'https://api.github.com/repos' . $repo_path . '/tags?per_page=' . intval($limit);
+      $tags_response = wp_remote_get($tags_url, [
+        'headers' => $headers,
+        'timeout' => 20,
+        'redirection' => 3,
+      ]);
+      if (!is_wp_error($tags_response) && (int)wp_remote_retrieve_response_code($tags_response) === 200) {
+        $tags_data = json_decode(wp_remote_retrieve_body($tags_response), true);
+        if (is_array($tags_data)) {
+          foreach ($tags_data as $tag) {
+            if (empty($tag['name'])) continue;
+            $commit_url = !empty($tag['commit']['sha'])
+              ? ('https://github.com' . $repo_path . '/commit/' . $tag['commit']['sha'])
+              : '';
+            $releases[] = [
+              'tag'        => $tag['name'],
+              'name'       => $tag['name'],
+              'prerelease' => false,
+              'url'        => $commit_url,
+              'published'  => '',
+              'body'       => '',
+            ];
+          }
+        }
+      }
     }
     return $releases;
   }
@@ -78,8 +106,8 @@ add_action('admin_menu', function () {
     __('GitUp', 'rg-git-updater'),                  // menu_title
     'update_core',                               // capability (alt: update_plugins)
     'rgplugins-settings',                        // slug (keep)
-    'rgplugins_settings_page',
-    plugin_dir_url(__FILE__) . 'assets/icon.svg' // <- ikon för menyn
+    'rgplugins_settings_page'
+    // Removed icon argument for submenu page
   );
 });
 
@@ -120,6 +148,8 @@ if (!function_exists("get_github_plugins")) {
       }
 
       $update_uri = $plugin_info["UpdateURI"];
+      // Trim trailing slashes for normalization
+      $update_uri = rtrim($update_uri, '/');
 
       if (strpos($update_uri, "github.com") !== false) {
         $github_plugins[] = [
@@ -153,16 +183,28 @@ if (!function_exists('get_github_themes')) {
     foreach ($themes as $stylesheet => $theme) {
       // Endast teman som har UpdateURI mot GitHub behandlas här
       $update_uri = $theme->get('UpdateURI');
+      // Normalisera till full GitHub-URL om bara owner/repo anges
+      if ($update_uri && strpos($update_uri, 'github.com') === false) {
+          $update_uri = 'https://github.com/' . ltrim($update_uri, '/');
+      }
+      // Trim trailing slashes for normalization
+      $update_uri = rtrim($update_uri, '/');
       if (!$update_uri || strpos($update_uri, 'github.com') === false) {
         continue;
       }
+      // Debug-loggning av theme-namn och update_uri
+      error_log('[RG Git Updater] Theme: ' . $theme->get('Name') . ' UpdateURI: ' . $update_uri);
+      $releases = rgplugins_fetch_releases($update_uri, false, 10);
+      error_log('[RG Git Updater] Found ' . count($releases) . ' releases for ' . $theme->get('Name'));
+
       $github_themes[] = [
-        'name' => $theme->get('Name'),
-        'version' => $theme->get('Version'),
-        'author' => $theme->get('Author'),
-        'github' => $update_uri,
-        'latest_release' => get_latest_github_release($update_uri, false, $force_refresh),
-        'stylesheet' => $stylesheet, // temats mappnamn
+        'name'          => $theme->get('Name'),
+        'version'       => $theme->get('Version'),
+        'author'        => $theme->get('Author'),
+        'github'        => $update_uri,
+        'latest_release'=> !empty($releases[0]['tag']) ? $releases[0]['tag'] : 'N/A',
+        'releases'      => $releases,
+        'stylesheet'    => $stylesheet,
       ];
     }
     return $github_themes;
@@ -218,34 +260,42 @@ if (!function_exists("rgplugins_settings_page")) {
                 </tr>
             </thead>
             <tbody>
+              <?php $odd = 'odd'; ?>
                 <?php foreach ($github_plugins as $plugin): ?>
                     <?php
                       $repo_label = $plugin["github"];
                       $repo_path  = parse_url($plugin["github"], PHP_URL_PATH);
                       if ($repo_path) { $repo_label = ltrim($repo_path, '/'); }
-                      $has_update = false;
-                      if (
-                        !empty($plugin['latest_release']) && $plugin['latest_release'] !== 'N/A'
-                        && version_compare($plugin['latest_release'], $plugin['version'], '>')
-                      ) {
-                        $has_update = true;
+                      // Beräkna $row_class baserat på $selected_tag och jämförelse mot $plugin['version']
+                      $include_pre = get_option('rgplugins_include_prereleases', '0') === '1';
+                      $releases = rgplugins_fetch_releases($plugin['github'], $include_pre, 20);
+                      $row_class = '';
+                      if (!empty($releases)) {
+                        $selected_tag = $releases[0]['tag'];
+                        if (version_compare($selected_tag, $plugin['version'], '>')) {
+                          $row_class = 'update';
+                        } elseif (version_compare($selected_tag, $plugin['version'], '<')) {
+                          $row_class = 'downgrade';
+                        } else {
+                          $row_class = 'reinstall';
+                        }
                       }
+                      if ($odd === 'odd') { $odd = 'even'; } else { $odd = 'odd'; }
                     ?>
-                    <?php if ($has_update): ?>
-                      <tr class="has-update">
+                    <?php if (!empty($releases) && version_compare($releases[0]['tag'], $plugin['version'], '>')): ?>
+                      <tr class="has-update row <?php echo $odd . ' ' . esc_attr($row_class); ?>" data-currentVersion="<?php echo esc_html($plugin["version"]); ?>">
                     <?php else: ?>
-                      <tr>
+                      <tr class="row <?php echo $odd . ' ' . esc_attr($row_class); ?>" data-currentVersion="<?php echo esc_html($plugin["version"]); ?>">
                     <?php endif; ?>
                         <td class="plugin" data-label="Plugin">
+                          
                           <?php echo esc_html($plugin["name"]); ?><br>
                           <button type="button" class="rgplugins-toggle-details" aria-expanded="false" title="<?php echo esc_attr__('Show details', 'rg-git-updater'); ?>"><small><?php echo esc_attr__('Show details', 'rg-git-updater'); ?></small></button>
                         </td>
                         <td class="version" data-label="Version"><?php echo esc_html($plugin["version"]); ?></td>
                         <td class="actions" data-label="Select release">
                           <?php
-                            // Respektera inställningen "Tillåt förhandsreleaser" även i UI-listan
-                            $include_pre = get_option('rgplugins_include_prereleases', '0') === '1';
-                            $releases = rgplugins_fetch_releases($plugin['github'], $include_pre, 20);
+                            // $releases och $include_pre är redan beräknade ovan
                             if (empty($releases)) {
                               echo '<span style="opacity:.7">' . esc_html__('No releases found', 'rg-git-updater') . '</span>';
                             } else {
@@ -258,7 +308,7 @@ if (!function_exists("rgplugins_settings_page")) {
                               echo '<input type="hidden" name="plugin" value="' . esc_attr($plugin_file) . '">';
                               echo '<input type="hidden" name="repo" value="' . esc_attr($plugin['github']) . '">';
                               echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
-                              echo '<select name="tag">';
+                              echo '<select class="rg-version-select" name="tag">';
                               foreach ($releases as $rel) {
                                 $is_latest = ($rel['tag'] === $plugin['latest_release']);
                                 $prefix = '';
@@ -276,8 +326,28 @@ if (!function_exists("rgplugins_settings_page")) {
                                 echo '<option value="' . esc_attr($rel['tag']) . '">' . esc_html($label) . '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</option>';
                               }
                               echo '</select>';
+                              // Dynamically determine label based on selected (default) release and installed version
+                              $selected_tag = $releases[0]['tag'];
+                              $label = __('Install', 'rg-git-updater');
+                              if (version_compare($selected_tag, $plugin['version'], '>')) {
+                                $label = __('Update', 'rg-git-updater');
+                              } elseif (version_compare($selected_tag, $plugin['version'], '<')) {
+                                $label = __('Downgrade', 'rg-git-updater');
+                              } else {
+                                $label = __('Re-install', 'rg-git-updater');
+                              }
                               // POST: går till admin-post handler som kör WP Upgrader
-                              submit_button(__('Install', 'rg-git-updater'), 'secondary', 'submit', false);
+                              $btn_class = 'button install';
+                              if ($label === __('Update', 'rg-git-updater')) {
+                                $btn_class .= ' update';
+                              } elseif ($label === __('Downgrade', 'rg-git-updater')) {
+                                $btn_class .= ' downgrade';
+                              } elseif ($label === __('Re-install', 'rg-git-updater')) {
+                                $btn_class .= ' reinstall';
+                              } else {
+                                $btn_class .= ' install';
+                              }
+                              echo '<input type="submit" name="submit" class="' . esc_attr($btn_class) . '" value="' . esc_attr($label) . '">';
                               echo '</form>';
                             }
                           ?>
@@ -325,6 +395,7 @@ if (!function_exists("rgplugins_settings_page")) {
         </table>
         <h2 style="margin-top:28px;"><?php esc_html_e('Themes', 'rg-git-updater'); ?></h2>
         <?php $github_themes = get_github_themes($force_refresh); ?>
+        <?php $odd = 'odd'; ?>
         <table class="widefat fixed striped rgplugins-table">
             <thead>
                 <tr>
@@ -339,21 +410,29 @@ if (!function_exists("rgplugins_settings_page")) {
                 <?php else: ?>
                     <?php foreach ($github_themes as $theme): ?>
                         <?php
-                          $repo_label = $theme["github"];
-                          $repo_path  = parse_url($theme["github"], PHP_URL_PATH);
-                          if ($repo_path) { $repo_label = ltrim($repo_path, '/'); }
-                          $has_update = false;
-                          if (
-                            !empty($theme['latest_release']) && $theme['latest_release'] !== 'N/A'
-                            && version_compare($theme['latest_release'], $theme['version'], '>')
-                          ) {
-                            $has_update = true;
+                        if ($odd === 'odd') { $odd = 'even'; } else { $odd = 'odd'; }
+                        $repo_label = $theme["github"];
+                        $repo_path  = parse_url($theme["github"], PHP_URL_PATH);
+                        if ($repo_path) { $repo_label = ltrim($repo_path, '/'); }
+                        // Beräkna $row_class baserat på $selected_tag och jämförelse mot $theme['version']
+                        $include_pre = get_option('rgplugins_include_prereleases', '0') === '1';
+                        $releases = rgplugins_fetch_releases($theme['github'], $include_pre, 20);
+                        $row_class = '';
+                        if (!empty($releases)) {
+                          $selected_tag = $releases[0]['tag'];
+                          if (version_compare($selected_tag, $theme['version'], '>')) {
+                            $row_class = 'update';
+                          } elseif (version_compare($selected_tag, $theme['version'], '<')) {
+                            $row_class = 'downgrade';
+                          } else {
+                            $row_class = 'reinstall';
                           }
+                        }
                         ?>
-                        <?php if ($has_update): ?>
-                          <tr class="has-update">
+                        <?php if (!empty($releases) && version_compare($releases[0]['tag'], $theme['version'], '>')): ?>
+                          <tr class="has-update <?php echo $odd . ' ' . esc_attr($row_class); ?>" data-currentVersion="<?php echo esc_html($theme["version"]); ?>">
                         <?php else: ?>
-                          <tr>
+                          <tr class="row <?php echo $odd . ' ' . esc_attr($row_class); ?>" data-currentVersion="<?php echo esc_html($theme["version"]); ?>">
                         <?php endif; ?>
                             <td class="plugin" data-label="Theme">
                               <?php echo esc_html($theme["name"]); ?><br>
@@ -362,9 +441,7 @@ if (!function_exists("rgplugins_settings_page")) {
                             <td class="version" data-label="Version"><?php echo esc_html($theme["version"]); ?></td>
                             <td class="actions" data-label="Select release">
                               <?php
-                                // Respektera global prerelease-inställning
-                                $include_pre = get_option('rgplugins_include_prereleases', '0') === '1';
-                                $releases = rgplugins_fetch_releases($theme['github'], $include_pre, 20);
+                                // $releases och $include_pre är redan beräknade ovan
                                 if (empty($releases)) {
                                   echo '<span style="opacity:.7">' . esc_html__('No releases found', 'rg-git-updater') . '</span>';
                                 } else {
@@ -377,7 +454,7 @@ if (!function_exists("rgplugins_settings_page")) {
                                   echo '<input type="hidden" name="theme" value="' . esc_attr($theme_stylesheet) . '">';
                                   echo '<input type="hidden" name="repo" value="' . esc_attr($theme['github']) . '">';
                                   echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
-                                  echo '<select name="tag">';
+                                  echo '<select class="rg-version-select" name="tag">';
                                   foreach ($releases as $rel) {
                                     $is_latest = ($rel['tag'] === $theme['latest_release']);
                                     $prefix = '';
@@ -393,8 +470,28 @@ if (!function_exists("rgplugins_settings_page")) {
                                   }
                                   echo '</select>';
                                   echo '<br>';
+                                  // Dynamically determine label based on selected (default) release and installed version
+                                  $selected_tag = $releases[0]['tag'];
+                                  $label = __('Install', 'rg-git-updater');
+                                  if (version_compare($selected_tag, $theme['version'], '>')) {
+                                    $label = __('Update', 'rg-git-updater');
+                                  } elseif (version_compare($selected_tag, $theme['version'], '<')) {
+                                    $label = __('Downgrade', 'rg-git-updater');
+                                  } else {
+                                    $label = __('Re-install', 'rg-git-updater');
+                                  }
                                   // POST: admin-post handler för teman (Theme_Upgrader)
-                                  submit_button(__('Install', 'rg-git-updater'), 'secondary', 'submit', false);
+                                  $btn_class = 'button';
+                                  if ($label === __('Update', 'rg-git-updater')) {
+                                    $btn_class .= ' update';
+                                  } elseif ($label === __('Downgrade', 'rg-git-updater')) {
+                                    $btn_class .= ' downgrade';
+                                  } elseif ($label === __('Re-install', 'rg-git-updater')) {
+                                    $btn_class .= ' reinstall';
+                                  } else {
+                                    $btn_class .= ' install';
+                                  }
+                                  echo '<input type="submit" name="submit" class="' . esc_attr($btn_class) . '" value="' . esc_attr($label) . '">';
                                   echo '</form>';
                                 }
                               ?>
@@ -408,10 +505,10 @@ if (!function_exists("rgplugins_settings_page")) {
                             <strong><?php esc_html_e('Repository:', 'rg-git-updater'); ?></strong>
                             <a href="<?php echo esc_url($theme['github']); ?>" target="_blank"><?php echo esc_html($theme['github']); ?></a><br>
                             <strong><?php esc_html_e('Latest release:', 'rg-git-updater'); ?></strong>
-                            <?php if (!empty($releases[0]['tag'])): ?>
-                              <?php echo esc_html($releases[0]['tag']); ?>
-                              <?php if (!empty($releases[0]['url'])): ?>
-                                — <a href="<?php echo esc_url($releases[0]['url']); ?>" target="_blank">
+                            <?php if (!empty($theme['releases'][0]['tag'])): ?>
+                              <?php echo esc_html($theme['releases'][0]['tag']); ?>
+                              <?php if (!empty($theme['releases'][0]['url'])): ?>
+                                — <a href="<?php echo esc_url($theme['releases'][0]['url']); ?>" target="_blank">
                                   <?php echo esc_html__('View on GitHub', 'rg-git-updater'); ?>
                                 </a>
                               <?php endif; ?>
@@ -419,17 +516,17 @@ if (!function_exists("rgplugins_settings_page")) {
                               <?php esc_html_e('N/A', 'rg-git-updater'); ?>
                             <?php endif; ?>
                             <?php
-                            if (!empty($releases[0]['published'])) {
-                              $published_str = date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($releases[0]['published']));
+                            if (!empty($theme['releases'][0]['published'])) {
+                              $published_str = date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($theme['releases'][0]['published']));
                               echo '<br><strong>' . esc_html__('Published:', 'rg-git-updater') . '</strong> ' . esc_html($published_str);
                             }
                             ?>
                           </td>
                           <td class="notes">
                             <?php
-                              if (!empty($releases[0]['body'])) {
+                              if (!empty($theme['releases'][0]['body'])) {
                                 // Output raw body, preserving HTML entities, allowing markdown formatting and line breaks.
-                                $raw_body = $releases[0]['body'];
+                                $raw_body = $theme['releases'][0]['body'];
                                 echo wpautop(make_clickable(wp_kses_post($raw_body)));
                               } else {
                                 echo '<span style="opacity:.7">' . esc_html__('No release notes', 'rg-git-updater') . '</span>';
@@ -973,3 +1070,79 @@ add_action('admin_post_rgplugins_clear_cache', function() {
   wp_safe_redirect($redirect_url);
   exit;
 });
+// ---- AUTOMATISK UPPDATERING & API FÖR GITHUB-TEMAN ----
+
+// Filter: injicera GitHub-releaseinfo i update_themes-transienten (samma princip som plugins)
+add_filter('site_transient_update_themes', function ($transient) {
+  if (!is_object($transient)) return $transient;
+  // Hämta alla teman med GitHub UpdateURI
+  $themes = get_github_themes(false);
+  foreach ($themes as $theme) {
+    $stylesheet = $theme['stylesheet'];
+    $current_version = $theme['version'];
+    $update_uri = $theme['github'];
+    $latest = $theme['latest_release'];
+    if (!$latest || $latest === 'N/A') continue;
+    if (version_compare($latest, $current_version, '<=')) continue;
+    // Bygg info-array för WP themes API
+    $package_url = 'https://codeload.github.com' . parse_url($update_uri, PHP_URL_PATH) . '/zip/refs/tags/' . rawurlencode($latest);
+    $transient->response[$stylesheet] = [
+      'theme'       => $theme['name'],
+      'new_version' => $latest,
+      'url'         => $update_uri,
+      'package'     => $package_url,
+    ];
+  }
+  return $transient;
+});
+
+// Filter: visa changelog/läsmer för teman via themes_api (thickbox)
+add_filter('themes_api', function ($result, $action, $args) {
+  // Vi hanterar bara 'theme_information'
+  if ($action !== 'theme_information' || empty($args->slug)) return $result;
+  $slug = $args->slug;
+  // Hitta temat bland installerade
+  $themes = wp_get_themes();
+  $theme = null;
+  foreach ($themes as $stylesheet => $t) {
+    if ($stylesheet === $slug) {
+      $theme = $t;
+      break;
+    }
+  }
+  if (!$theme) return $result;
+  $update_uri = $theme->get('UpdateURI');
+  if (!$update_uri || strpos($update_uri, 'github.com') === false) return $result;
+
+  // Hämta releases (inklusive pre om inställt)
+  $include_pre = get_option('rgplugins_include_prereleases', '0') === '1';
+  $releases = rgplugins_fetch_releases($update_uri, $include_pre, 10);
+  $latest = !empty($releases[0]) ? $releases[0] : null;
+  // Bygg sections-array (changelog/description/readme)
+  $sections = [];
+  // Beskrivning: från style.css-header Description
+  $desc = $theme->get('Description');
+  if ($desc) $sections['description'] = wpautop(esc_html($desc));
+  // Changelog: från release notes/body
+  if ($latest && !empty($latest['body'])) {
+    $sections['changelog'] = wpautop(make_clickable(wp_kses_post($latest['body'])));
+  } else {
+    $sections['changelog'] = __('No changelog found.', 'rg-git-updater');
+  }
+  // Bygg info-array
+  $info = (object)[
+    'name'        => $theme->get('Name'),
+    'slug'        => $slug,
+    'version'     => $theme->get('Version'),
+    'author'      => $theme->get('Author'),
+    'preview_url' => $theme->get('ThemeURI'),
+    'sections'    => $sections,
+    'requires'    => $theme->get('RequiresWP'),
+    'requires_php'=> $theme->get('RequiresPHP'),
+    'homepage'    => $theme->get('ThemeURI'),
+    'download_link' => $latest ? ('https://codeload.github.com' . parse_url($update_uri, PHP_URL_PATH) . '/zip/refs/tags/' . rawurlencode($latest['tag'])) : '',
+    'last_updated' => $latest && !empty($latest['published']) ? $latest['published'] : '',
+    // Ikon/headers etc kan läggas till vid behov
+  ];
+  return $info;
+}, 10, 3);

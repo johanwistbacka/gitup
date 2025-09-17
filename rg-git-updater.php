@@ -230,18 +230,32 @@ if (!class_exists('RgGitUpdaterClass')) {
      * @return string           Tagg eller 'N/A'
      */
     private function get_latest_github_release($repo_url) {
+      $releases = $this->get_github_releases($repo_url, 1);
+      if (!empty($releases) && !empty($releases[0]['tag_name'])) {
+        return $releases[0]['tag_name'];
+      }
+      return 'N/A';
+    }
+
+    /**
+     * Hämtar (och cache:ar) de senaste $limit releaserna från GitHub för ett repo.
+     * Returnerar en array av assoc-arrayer: [ [tag_name, body, published_at], ... ]
+     *
+     * @param string $repo_url  Full GitHub-URL (UpdateURI/ThemeURI)
+     * @param int $limit        Antal releaser att hämta (default 10)
+     * @return array
+     */
+    private function get_github_releases($repo_url, $limit = 10) {
       $repo_path = parse_url($repo_url, PHP_URL_PATH);
       $include_prereleases = get_option('rgplugins_include_prereleases', '0') === '1';
-
-      // Endpoint: stabil endast eller lista (inkl. prereleases)
       $api_url = $include_prereleases
-        ? "https://api.github.com/repos{$repo_path}/releases?per_page=10"
+        ? "https://api.github.com/repos{$repo_path}/releases?per_page=" . max(10, $limit)
         : "https://api.github.com/repos{$repo_path}/releases/latest";
 
-      // Separat cache-nyckel för stable vs pre
-      $cache_key = 'github_release_' . md5($repo_url . '|' . ($include_prereleases ? 'pre' : 'stable'));
+      // Separat cache-nyckel för stable vs pre och antal
+      $cache_key = 'github_releases_' . md5($repo_url . '|' . ($include_prereleases ? 'pre' : 'stable') . "|$limit");
       $cached    = get_transient($cache_key);
-      if ($cached && $cached !== 'N/A') {
+      if (is_array($cached)) {
         return $cached;
       }
 
@@ -251,35 +265,39 @@ if (!class_exists('RgGitUpdaterClass')) {
       }
       $response = wp_remote_get($api_url, ['headers' => $headers, 'timeout' => 20, 'redirection' => 3]);
       if (is_wp_error($response)) {
-        set_transient($cache_key, 'N/A', 5 * MINUTE_IN_SECONDS);
-        return 'N/A';
+        set_transient($cache_key, [], 5 * MINUTE_IN_SECONDS);
+        return [];
       }
       $code = (int) wp_remote_retrieve_response_code($response);
       if ($code !== 200) {
-        set_transient($cache_key, 'N/A', 5 * MINUTE_IN_SECONDS);
-        return 'N/A';
+        set_transient($cache_key, [], 5 * MINUTE_IN_SECONDS);
+        return [];
       }
       $data = json_decode(wp_remote_retrieve_body($response), true);
-
+      $releases = [];
       if ($include_prereleases) {
-        // Välj första icke-draft release (kan vara prerelease)
-        $tag = 'N/A';
         if (is_array($data)) {
           foreach ($data as $rel) {
             if (!empty($rel['draft'])) { continue; }
-            if (!empty($rel['tag_name'])) { $tag = $rel['tag_name']; break; }
+            $releases[] = [
+              'tag_name'     => $rel['tag_name'] ?? '',
+              'body'         => $rel['body'] ?? '',
+              'published_at' => $rel['published_at'] ?? '',
+            ];
+            if (count($releases) >= $limit) break;
           }
         }
       } else {
-        $tag = is_array($data) ? ($data['tag_name'] ?? 'N/A') : 'N/A';
+        if (is_array($data) && !empty($data['tag_name'])) {
+          $releases[] = [
+            'tag_name'     => $data['tag_name'],
+            'body'         => $data['body'] ?? '',
+            'published_at' => $data['published_at'] ?? '',
+          ];
+        }
       }
-
-      if ($tag !== 'N/A') {
-        set_transient($cache_key, $tag, HOUR_IN_SECONDS);
-      } else {
-        set_transient($cache_key, 'N/A', 5 * MINUTE_IN_SECONDS);
-      }
-      return $tag;
+      set_transient($cache_key, $releases, HOUR_IN_SECONDS);
+      return $releases;
     }
 
     /**
@@ -312,13 +330,18 @@ if (!class_exists('RgGitUpdaterClass')) {
         if (empty($repo_url)) {
           $repo_url = $theme->get('ThemeURI');
         }
+        // Normalize repo_url: if not empty and does not contain 'github.com', prepend https://github.com/
+        if (!empty($repo_url) && strpos($repo_url, 'github.com') === false) {
+          $repo_url = 'https://github.com/' . ltrim($repo_url, '/');
+        }
         if (empty($repo_url) || strpos($repo_url, 'github.com') === false) {
           continue;
         }
-        $latest_release = $this->get_latest_github_release($repo_url);
-        if ($latest_release === 'N/A') {
+        $releases = $this->get_github_releases($repo_url, 10);
+        if (!$releases || empty($releases[0]['tag_name'])) {
           continue;
         }
+        $latest_release = $releases[0]['tag_name'];
         $current_ver  = (string) $theme->get('Version');
         $latest_norm  = $this->normalize_version_tag($latest_release);
         $current_norm = $this->normalize_version_tag($current_ver);
@@ -334,6 +357,11 @@ if (!class_exists('RgGitUpdaterClass')) {
             'url'         => $repo_url,
           ];
         }
+        // Store all releases for UI (e.g., changelog)
+        if (!isset($transient->rg_releases)) {
+          $transient->rg_releases = [];
+        }
+        $transient->rg_releases[$stylesheet] = $releases;
       }
       return $transient;
     }
@@ -360,47 +388,30 @@ if (!class_exists('RgGitUpdaterClass')) {
         if (empty($repo_url)) {
           $repo_url = $theme->get('ThemeURI');
         }
+        // Normalize repo_url: if not empty and does not contain 'github.com', prepend https://github.com/
+        if (!empty($repo_url) && strpos($repo_url, 'github.com') === false) {
+          $repo_url = 'https://github.com/' . ltrim($repo_url, '/');
+        }
         if (empty($repo_url) || strpos($repo_url, 'github.com') === false) {
           rg_updater_log('theme_info: no GitHub URI for slug=' . $args->slug);
           return $res;
         }
+        $releases = $this->get_github_releases($repo_url, 10);
+        if (!$releases || empty($releases[0]['tag_name'])) {
+          rg_updater_log('theme_info: no releases found');
+          return $res;
+        }
+        $latest = $releases[0];
         $repo_path = parse_url($repo_url, PHP_URL_PATH);
-        $include_prereleases = get_option('rgplugins_include_prereleases', '0') === '1';
-        $api_url = $include_prereleases
-          ? "https://api.github.com/repos{$repo_path}/releases?per_page=10"
-          : "https://api.github.com/repos{$repo_path}/releases/latest";
-        $headers = ['User-Agent' => 'WordPress Theme', 'Accept' => 'application/vnd.github+json'];
-        if (!empty($this->github_token)) {
-          $headers['Authorization'] = 'Bearer ' . $this->github_token;
-        }
-        $response = wp_remote_get($api_url, ['headers' => $headers, 'timeout' => 20, 'redirection' => 3]);
-        if (is_wp_error($response)) {
-          rg_updater_log('theme_info: wp_remote_get error: ' . $response->get_error_message());
-          return $res;
-        }
-        $code = (int) wp_remote_retrieve_response_code($response);
-        if ($code !== 200) {
-          rg_updater_log('theme_info: http code=' . $code);
-          return $res;
-        }
-        $data = json_decode(wp_remote_retrieve_body($response), true);
-        if ($include_prereleases) {
-          $tag = '';
-          if (is_array($data)) {
-            foreach ($data as $rel) {
-              if (!empty($rel['draft'])) { continue; }
-              if (!empty($rel['tag_name'])) { $tag = $rel['tag_name']; break; }
-            }
-          }
-        } else {
-          $tag = is_array($data) ? ($data['tag_name'] ?? '') : '';
-        }
-        if (empty($tag)) {
-          rg_updater_log('theme_info: no tag resolved');
-          return $res;
-        }
+        $tag = $latest['tag_name'];
         $zip_url = "https://codeload.github.com{$repo_path}/zip/refs/tags/{$tag}";
         rg_updater_log('Theme info for ' . $args->slug . ' -> tag ' . $tag . ' package ' . $zip_url);
+        $changelog = '';
+        foreach ($releases as $rel) {
+          if (empty($rel['tag_name'])) continue;
+          $changelog .= '<h4>' . esc_html($rel['tag_name']) . '</h4>';
+          $changelog .= '<div>' . wp_kses_post($rel['body']) . '</div><hr>';
+        }
         $info = new stdClass();
         $info->name = $theme->get('Name');
         $info->slug = $args->slug;
@@ -410,7 +421,7 @@ if (!class_exists('RgGitUpdaterClass')) {
         $info->download_link = $zip_url;
         $info->sections = [
           'description' => $theme->get('Description'),
-          'changelog'   => isset($data['body']) ? wp_kses_post($data['body']) : '',
+          'changelog'   => $changelog,
         ];
         return $info;
       }

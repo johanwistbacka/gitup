@@ -1,10 +1,10 @@
 # rg-git-updater
-> **Version:** 2025.09.16.02-beta
- Hanterar automatiska uppdateringar för Ratt Grafiskas plugins via GitHub.
+> **Version:** 2025.09.17.01-beta
+ Hanterar automatiska uppdateringar för plugins via GitHub.
 
 # RG Git Updater
 
-En WordPress-plugin som hanterar **automatiska uppdateringar** för Rätt Grafiskas plugins och teman via **GitHub Releases**.
+En WordPress-plugin som hanterar **automatiska uppdateringar** för plugins och teman via **GitHub Releases**.
 
 ## Funktioner
 
@@ -24,6 +24,17 @@ En WordPress-plugin som hanterar **automatiska uppdateringar** för Rätt Grafis
 1. Klona eller ladda ner detta repo till `wp-content/plugins/rg-git-updater`.
 2. Aktivera tillägget i WordPress admin.
 3. Navigera till **Verktyg → GitHub-uppdateringar** för att konfigurera.
+
+## Skärmdumpar
+
+1. Inställningssidan – visar installerade plugins/teman, versioner och dropdown för releaser.  
+   ![Inställningssidan](assets/images/screenshots/settings.png)
+
+2. Uppdateringsfliken – hur pluginet visas under **wp-admin/update-core.php** med release notes.  
+   ![Update-core](assets/images/screenshots/update-core.png)
+
+3. Pluginlistan – ikon, version, "Visa uppgifter"-länk och tokenvarning.  
+   ![Pluginlistan](assets/images/screenshots/plugin-list.png)
 
 ## Konfiguration
 
@@ -76,12 +87,9 @@ Loggen hittar du i `wp-content/debug.log`.
 ## Roadmap / TODO
 
 ### Prioriterat nästa steg:
-
-- [ ] Visa "Private repro" istället för "Inga releaser hittades" om felaktig/ingen token.
-- [ ] Visa release notes, datum och länk till GitHub-release i UI.
-- [ ] Fallback till GitHub commits om inga releasetaggar finns.
 - [ ] Flytta API-anrop till cron/AJAX för att snabba upp admin-sidor.
-- [ ] Möjlighet att uppdatera alla plugins/teman i en batch från options-sidan.
+- [ ] Visa "Private repro" istället för "Inga releaser hittades" om felaktig/ingen token.
+- [x] Visa release notes, datum och länk till GitHub-release i UI.
 - [x] Integrera med Site Health så att tokenstatus och uppdateringsfel visas där.
 - [x] Flyttat CSS, JS och bilder till `assets/`-struktur (`css`, `js`, `scss`, `images`).
 - [x] Flyttat Site Health-relaterad logik till egen fil `site-health.php`.
@@ -94,9 +102,20 @@ Loggen hittar du i `wp-content/debug.log`.
 - Stöd för att välja release direkt från wp-admin/update-core.php (avviker från WordPress-standard, så ej prioriterad).
 - Stöd för GitHub-webhooks för att trigga uppdateringskontroll vid ny release.
 - Lägg till WP-CLI-kommandon (`wp rg-updater check`, `wp rg-updater update`).
-
+- Fallback till GitHub commits om inga releasetaggar finns.
+- Möjlighet att uppdatera alla plugins/teman i en batch från options-sidan.
 
 ## Changelog
+
+### 2025.09.17.01-beta
+- Added support for theme releases in options page (now shows dropdown, latest release, and release notes like plugins).
+- Unified release notes handling (consistent across plugins, themes, update-core).
+- Improved button labeling in options page (now shows Update, Downgrade, Reinstall depending on selection).
+- Added CSS classes (`update`, `downgrade`, `reinstall`) to buttons and rows for easier styling.
+- Added left border highlight on rows based on update type.
+- Improved details row layout: summary and release notes now in two columns.
+- Fixed handling of missing releases: shows clearer messages.
+- Various JS improvements for version dropdowns (logs, comparisons, live label updates).
 
 ### 2025.09.16.02-beta
 - Added cache clearing button in admin to manually flush GitHub API cache (fully implemented and tested).
@@ -140,3 +159,15 @@ Loggen hittar du i `wp-content/debug.log`.
 ## Licens
 
 MIT – se [LICENSE](LICENSE)
+
+## Release Guide
+
+För att göra en release, följ dessa steg:
+
+1. Uppdatera versionsnumret i pluginets huvudfil (`rg-git-updater.php`) och i `README.md` under versionstaggen.
+2. Commit:a ändringarna med ett beskrivande meddelande, t.ex. "Bump version to x.y.z".
+3. Skapa en Git-tag med versionsnumret, t.ex. `git tag -a x.y.z -m "Release x.y.z"`.
+4. Pusha både commit och tag till GitHub: `git push origin main --tags`.
+5. Gå till GitHub och skapa en ny release baserad på taggen, fyll i release notes.
+6. Verifiera att releasen syns korrekt i pluginets inställningssida och att uppdateringar fungerar som förväntat.
+7. Testa eventuella ändringar i UI och funktionalitet, samt kontrollera loggar vid behov.

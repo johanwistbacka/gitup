@@ -47,9 +47,8 @@ if (!function_exists('rgplugins_plugins_api_handler')) {
         } else {
           // Hämta lokal README.md
           $plugin_dir = WP_PLUGIN_DIR . '/' . dirname($plugin_path);
-          $local_readme = $plugin_dir . '/README.md';
-          if (file_exists($local_readme)) {
-            $raw_readme = file_get_contents($local_readme);
+          if (file_exists($plugin_dir . '/README.md')) {
+            $raw_readme = file_get_contents($plugin_dir . '/README.md');
           }
         }
         if (!empty($raw_readme)) {
@@ -115,6 +114,127 @@ add_filter('plugin_row_meta', function($links, $file, $plugin_data) {
       $new_version = $plugin_data['Version'] ?? '';
       if (!empty($new_version)) {
         $info_url = self_admin_url("plugin-install.php?tab=plugin-information&plugin={$slug}&TB_iframe=true&width=600&height=550");
+        $links[] = sprintf(
+          '<a href="%s" class="thickbox open-plugin-details-modal">%s</a>',
+          esc_url($info_url),
+          sprintf(__('View details of version %s', 'rg-git-updater'), esc_html($new_version))
+        );
+      }
+    }
+  }
+  return $links;
+}, 10, 3);
+
+// Add themes_api filter for GitHub themes
+add_filter('themes_api', function($res, $action, $args) {
+  if ($action !== 'theme_information' || empty($args->slug)) {
+    return $res;
+  }
+
+  // Get all themes
+  if (!function_exists('wp_get_themes')) {
+    require_once ABSPATH . 'wp-includes/theme.php';
+  }
+  $all_themes = wp_get_themes();
+
+  foreach ($all_themes as $theme_slug => $theme_obj) {
+    // The slug may be the directory name
+    if ($theme_slug === $args->slug) {
+      $update_uri = $theme_obj->get('UpdateURI');
+      if (!empty($update_uri) && strpos($update_uri, 'github.com') !== false) {
+        // Fetch releases for this repo
+        $include_pre = get_option('rgplugins_include_prereleases', '0') === '1';
+        $releases = rgplugins_fetch_releases($update_uri, $include_pre, 50);
+
+        // Load description: fetch README from GitHub only if newer version exists, else local
+        $description = '<p>' . esc_html($theme_obj->get('Description')) . '</p>';
+        $raw_readme = '';
+        $has_update = false;
+        if (!empty($releases) && !empty($releases[0]['tag'])) {
+          if (version_compare($releases[0]['tag'], $theme_obj->get('Version'), '>')) {
+            $has_update = true;
+          }
+        }
+        if ($has_update) {
+          $tag = $releases[0]['tag'];
+          $readme_url = str_replace('github.com', 'raw.githubusercontent.com', $update_uri);
+          $readme_url = rtrim($readme_url, '/') . '/' . $tag . '/README.md';
+          $readme_content = wp_remote_get($readme_url);
+          if (!is_wp_error($readme_content) && wp_remote_retrieve_response_code($readme_content) === 200) {
+            $raw_readme = wp_remote_retrieve_body($readme_content);
+          }
+        } else {
+          // Try to load local README.md
+          $theme_dir = $theme_obj->get_stylesheet_directory();
+          $local_readme = $theme_dir . '/README.md';
+          if (file_exists($local_readme)) {
+            $raw_readme = file_get_contents($local_readme);
+          }
+        }
+        if (!empty($raw_readme)) {
+          $description .= '<h3>Readme</h3>';
+          if (class_exists('Parsedown')) {
+            $Parsedown = new Parsedown();
+            $description .= $Parsedown->text($raw_readme);
+          } else {
+            $description .= wpautop(esc_html($raw_readme));
+          }
+        }
+
+        // Build changelog from up to 10 latest releases
+        $changelog = '';
+        if (!empty($releases)) {
+          usort($releases, function($a, $b) {
+            return strtotime($b['date']) <=> strtotime($a['date']);
+          });
+          $count = 0;
+          foreach ($releases as $release) {
+            if ($count >= 10) {
+              break;
+            }
+            $tag = esc_html($release['tag'] ?? '');
+            $date = !empty($release['date']) ? date_i18n(get_option('date_format'), strtotime($release['date'])) : '';
+            $body = !empty($release['body'])
+                ? '<div class="rg-changelog-body">' . nl2br(make_clickable(wp_kses_post($release['body']))) . '</div>'
+                : '<p><em>' . __('No details provided for this release.', 'rg-git-updater') . '</em></p>';
+            $changelog .= '<h4>' . $tag . ' - ' . $date . '</h4>' . $body;
+            $count++;
+          }
+          $repo_releases_url = rtrim($update_uri, '/') . '/releases';
+          $changelog .= '<p><a href="' . esc_url($repo_releases_url) . '" target="_blank" rel="noopener noreferrer">' . __('View all releases on GitHub', 'rg-git-updater') . '</a></p>';
+        } else {
+          $changelog = '<p>' . __('No changelog provided.', 'rg-git-updater') . '</p>';
+        }
+
+        return (object)[
+          'name'        => $theme_obj->get('Name'),
+          'slug'        => $args->slug,
+          'version'     => $releases[0]['tag'] ?? $theme_obj->get('Version'),
+          'author'      => $theme_obj->get('Author'),
+          'homepage'    => $theme_obj->get('ThemeURI') ?: $update_uri,
+          'sections'    => [
+            'description' => $description,
+            'changelog'   => $changelog,
+          ],
+        ];
+      }
+    }
+  }
+  return $res;
+}, 10, 3);
+
+// Add "View details of version ..." link on themes.php for GitHub themes
+add_filter('theme_row_meta', function($links, $theme_slug, $theme) {
+  $update_uri = $theme->get('UpdateURI');
+  if (!empty($update_uri) && strpos($update_uri, 'github.com') !== false) {
+    // Check if update is available
+    $update_data = get_site_transient('update_themes');
+    $stylesheet = $theme->get_stylesheet();
+    $has_update = !empty($update_data->response[$stylesheet]);
+    if (!$has_update) {
+      $new_version = $theme->get('Version');
+      if (!empty($new_version)) {
+        $info_url = self_admin_url("theme-install.php?tab=theme-information&theme={$theme_slug}&TB_iframe=true&width=600&height=550");
         $links[] = sprintf(
           '<a href="%s" class="thickbox open-plugin-details-modal">%s</a>',
           esc_url($info_url),
