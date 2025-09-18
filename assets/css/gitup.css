@@ -40,10 +40,10 @@
   background-color: rgba(62, 149, 206, 0.062745098);
 }
 .rgplugins-table tbody tr.row.even {
-  background-color: rgba(51, 142, 202, 0.062745098);
+  background-color: rgba(213, 232, 244, 0.062745098);
 }
 .rgplugins-table tbody tr.row.odd {
-  background-color: #fff;
+  background-color: rgba(131, 187, 224, 0.062745098);
 }
 .rgplugins-table tbody tr.row.update td:first-child {
   border-left: 4px solid #0d47a1;
@@ -219,20 +219,48 @@
   object-fit: contain;
 }
 
-.rgplugins-header {
+.rgplugins-header h1 {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 16px;
 }
-.rgplugins-header img {
+.rgplugins-header h1 img {
   width: 40px;
   height: 40px;
 }
-.rgplugins-header h1 {
+.rgplugins-header h1 h1 {
   margin: 0;
 }
 
 .rg-changelog-body {
   white-space: pre-line;
+}
+
+.rgplugins-tools {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+}
+.rgplugins-tools h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+.rgplugins-tools .button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rgplugins-tools .button-group .button {
+  margin: 0;
+}
+.rgplugins-tools .button-group.save-settings {
+  justify-content: flex-start;
+}
+.rgplugins-tools .button-group.test-connection {
+  justify-content: flex-start;
+}
+.rgplugins-tools .button-group.clear-cache {
+  justify-content: flex-start;
 }

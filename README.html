@@ -140,7 +140,14 @@ Hanterar automatiska uppdateringar för plugins via GitHub.</p>
 
 <ul>
 <li>[ ] Flytta API-anrop till cron/AJAX för att snabba upp admin-sidor.</li>
-<li>[ ] Visa &#8220;Private repro&#8221; istället för &#8220;Inga releaser hittades&#8221; om felaktig/ingen token.</li>
+<li>[x] Förbättrad logik för &#8220;Inga releaser hittades&#8221;:
+
+<ul>
+<li>Giltig token → visar &#8220;Inga releaser hittades&#8221; om inget release finns.</li>
+<li>Ogiltig token → publika repos fungerar, privata visar &#8220;Private repo / 404&#8221;.</li>
+<li>Ingen token → publika repos fungerar, privata visar &#8220;Private repo / 404&#8221;.</li>
+<li>Rate limit nådd → visar &#8220;GitHub API rate limit reached. Please add or update your token.&#8221;</li>
+</ul></li>
 <li>[x] Visa release notes, datum och länk till GitHub-release i UI.</li>
 <li>[x] Integrera med Site Health så att tokenstatus och uppdateringsfel visas där.</li>
 <li>[x] Flyttat CSS, JS och bilder till <code>assets/</code>-struktur (<code>css</code>, <code>js</code>, <code>scss</code>, <code>images</code>).</li>

@@ -1,5 +1,5 @@
 # rg-git-updater
-> **Version:** 2025.09.17.01-beta
+> **Version:** 2025.09.18.01
  Hanterar automatiska uppdateringar för plugins via GitHub.
 
 # RG Git Updater
@@ -88,7 +88,11 @@ Loggen hittar du i `wp-content/debug.log`.
 
 ### Prioriterat nästa steg:
 - [ ] Flytta API-anrop till cron/AJAX för att snabba upp admin-sidor.
-- [ ] Visa "Private repro" istället för "Inga releaser hittades" om felaktig/ingen token.
+- [x] Förbättrad logik för "Inga releaser hittades":
+    - Giltig token → visar "Inga releaser hittades" om inget release finns.
+    - Ogiltig token → publika repos fungerar, privata visar "Private repo / 404".
+    - Ingen token → publika repos fungerar, privata visar "Private repo / 404".
+    - Rate limit nådd → visar "GitHub API rate limit reached. Please add or update your token."
 - [x] Visa release notes, datum och länk till GitHub-release i UI.
 - [x] Integrera med Site Health så att tokenstatus och uppdateringsfel visas där.
 - [x] Flyttat CSS, JS och bilder till `assets/`-struktur (`css`, `js`, `scss`, `images`).
@@ -106,6 +110,13 @@ Loggen hittar du i `wp-content/debug.log`.
 - Möjlighet att uppdatera alla plugins/teman i en batch från options-sidan.
 
 ## Changelog
+
+### 2025.09.18.01
+- Full release (ej beta).
+- Förbättrad UI på inställningssidan: verktygsknappar grupperade under en egen sektion för bättre översikt.
+- Debug-logik uppdaterad: färre API-anrop, extra loggning för tokenstatus och fel vid hämtning.
+- Förbättrad logik för privata/publika repos: visar korrekt "Private repo / 404" endast för privata när token saknas eller är ogiltig, publika repos fungerar som förväntat.
+- Alla inline-strängar (PHP och JavaScript) översatta och wrappade för översättningsstöd.
 
 ### 2025.09.17.01-beta
 - Added support for theme releases in options page (now shows dropdown, latest release, and release notes like plugins).

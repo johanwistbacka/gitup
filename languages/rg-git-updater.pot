@@ -2,14 +2,14 @@
 # This file is distributed under the same license as the Rätt Grafiska Git Updater plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: Rätt Grafiska Git Updater 2025.09.17.01-beta\n"
+"Project-Id-Version: Rätt Grafiska Git Updater 2025.09.18.01\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/rg-git-updater\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2025-09-17T14:41:56+00:00\n"
+"POT-Creation-Date: 2025-09-18T11:27:58+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: rg-git-updater\n"
@@ -36,261 +36,297 @@ msgstr ""
 
 #: index.php:70
 #: index.php:78
-#: options.php:239
+#: options.php:390
 msgid "Settings"
 msgstr ""
 
-#: options.php:105
+#: options.php:253
 msgid "GitUp – GitHub Updates"
 msgstr ""
 
-#: options.php:106
-#: options.php:234
+#: options.php:254
+#: options.php:383
 msgid "GitUp"
 msgstr ""
 
-#: options.php:236
+#: options.php:387
 msgid "Manage GitHub-hosted plugin and theme updates for your WordPress site."
 msgstr ""
 
-#: options.php:238
+#: options.php:389
 msgid "Updates"
 msgstr ""
 
-#: options.php:246
+#: options.php:399
 msgid "List refreshed from GitHub (cache bypassed)."
 msgstr ""
 
-#: options.php:251
+#: options.php:410
 msgid "Refresh list"
 msgstr ""
 
-#: options.php:253
+#: options.php:412
 msgid "Plugins"
 msgstr ""
 
-#: options.php:257
+#: options.php:416
 msgid "Plugin"
 msgstr ""
 
-#: options.php:258
-#: options.php:403
+#: options.php:417
+#: options.php:593
 msgid "Version"
 msgstr ""
 
-#: options.php:259
-#: options.php:404
+#: options.php:418
+#: options.php:594
 msgid "Select release"
 msgstr ""
 
-#: options.php:293
-#: options.php:439
+#: options.php:452
+#: options.php:629
 msgid "Show details"
 msgstr ""
 
-#: options.php:300
-#: options.php:446
+#: options.php:480
+#: options.php:657
+msgid "GitHub API rate limit exceeded. Add a token."
+msgstr ""
+
+#: options.php:484
+#: options.php:661
+msgid "Private repo / 404. Update token."
+msgstr ""
+
+#: options.php:486
+#: options.php:489
+#: options.php:663
+#: options.php:666
 msgid "No releases found"
 msgstr ""
 
-#: options.php:331
-#: options.php:475
+#: options.php:521
+#: options.php:696
 msgid "Install"
 msgstr ""
 
-#: options.php:333
-#: options.php:341
-#: options.php:477
-#: options.php:485
+#: options.php:523
+#: options.php:531
+#: options.php:698
+#: options.php:706
 msgid "Update"
 msgstr ""
 
-#: options.php:335
-#: options.php:343
-#: options.php:479
-#: options.php:487
+#: options.php:525
+#: options.php:533
+#: options.php:700
+#: options.php:708
 msgid "Downgrade"
 msgstr ""
 
-#: options.php:337
-#: options.php:345
-#: options.php:481
-#: options.php:489
+#: options.php:527
+#: options.php:535
+#: options.php:702
+#: options.php:710
 msgid "Re-install"
 msgstr ""
 
-#: options.php:359
-#: options.php:503
+#: options.php:549
+#: options.php:724
 msgid "Author:"
 msgstr ""
 
-#: options.php:361
-#: options.php:505
+#: options.php:551
+#: options.php:726
 msgid "Repository:"
 msgstr ""
 
-#: options.php:363
-#: options.php:507
+#: options.php:553
+#: options.php:728
 msgid "Latest release:"
 msgstr ""
 
-#: options.php:368
-#: options.php:512
+#: options.php:558
+#: options.php:733
 msgid "View on GitHub"
 msgstr ""
 
-#: options.php:372
-#: options.php:516
+#: options.php:562
+#: options.php:737
 msgid "N/A"
 msgstr ""
 
-#: options.php:377
-#: options.php:521
+#: options.php:567
+#: options.php:742
 msgid "Published:"
 msgstr ""
 
-#: options.php:388
-#: options.php:532
+#: options.php:578
+#: options.php:753
 msgid "No release notes"
 msgstr ""
 
-#: options.php:396
+#: options.php:586
 msgid "Themes"
 msgstr ""
 
-#: options.php:402
+#: options.php:592
 msgid "Theme"
 msgstr ""
 
-#: options.php:409
+#: options.php:599
 msgid "No themes with a GitHub Update URI were found."
 msgstr ""
 
-#: options.php:562
-msgid "Save settings"
+#: options.php:765
+msgid "Tools"
 msgstr ""
 
-#: options.php:564
-msgid "Test GitHub connection"
-msgstr ""
-
-#: options.php:575
+#: options.php:772
 msgid "Clear GitHub cache"
 msgstr ""
 
-#: options.php:609
+#: options.php:775
+msgid "Test GitHub connection"
+msgstr ""
+
+#: options.php:789
+msgid "Save settings"
+msgstr ""
+
+#: options.php:802
+msgid "Testing…"
+msgstr ""
+
+#: options.php:815
+msgid "Error: Could not parse server response."
+msgstr ""
+
+#: options.php:820
+msgid "Successful connection!"
+msgstr ""
+
+#: options.php:824
 msgid "Token expires at:"
 msgstr ""
 
-#: options.php:634
+#: options.php:828
+msgid "Error during test."
+msgstr ""
+
+#: options.php:832
+msgid "Error:"
+msgstr ""
+
+#: options.php:849
 msgid "GitHub cache cleared."
 msgstr ""
 
-#: options.php:760
+#: options.php:925
 msgid "Last verified:"
 msgstr ""
 
-#: options.php:768
+#: options.php:933
 msgid "Token updated:"
 msgstr ""
 
-#: options.php:769
+#: options.php:934
 #, php-format
 msgid "%s day ago"
 msgid_plural "%s days ago"
 msgstr[0] ""
 msgstr[1] ""
 
-#: options.php:782
+#: options.php:947
 #, php-format
 msgid "Expires in %d days"
 msgstr ""
 
-#: options.php:789
+#: options.php:954
 msgid "Token expiry:"
 msgstr ""
 
-#: options.php:795
+#: options.php:960
 msgid "Token expired"
 msgstr ""
 
-#: options.php:800
+#: options.php:965
 msgid "GitHub does not provide an expiry date for this token type."
 msgstr ""
 
-#: options.php:812
+#: options.php:977
 msgid "Allow pre-releases"
 msgstr ""
 
-#: options.php:815
+#: options.php:980
 msgid "Show and update to beta/rc releases"
 msgstr ""
 
-#: options.php:825
+#: options.php:990
 msgid "Debug mode"
 msgstr ""
 
-#: options.php:828
+#: options.php:993
 msgid "Enable logging for RG Git Updater"
 msgstr ""
 
-#: options.php:838
-#: options.php:881
-#: options.php:1052
+#: options.php:1003
+#: options.php:1046
+#: options.php:1217
 msgid "You do not have permission."
 msgstr ""
 
-#: options.php:853
-#: options.php:898
+#: options.php:1018
+#: options.php:1063
 msgid "Connection error: "
 msgstr ""
 
-#: options.php:865
-#: options.php:912
+#: options.php:1030
+#: options.php:1077
 #, php-format
 msgid "Authenticated! Logged in as %s"
 msgstr ""
 
-#: options.php:867
-#: options.php:918
+#: options.php:1032
+#: options.php:1083
 #, php-format
 msgid "Authentication failed. HTTP status: %s"
 msgstr ""
 
-#: options.php:887
+#: options.php:1052
 msgid "No token saved."
 msgstr ""
 
-#: options.php:941
+#: options.php:1106
 msgid "You do not have permission to update plugins."
 msgstr ""
 
-#: options.php:948
+#: options.php:1113
 msgid "Invalid request."
 msgstr ""
 
-#: options.php:986
+#: options.php:1151
 msgid "Installation of selected release succeeded."
 msgstr ""
 
-#: options.php:989
-#: options.php:1040
+#: options.php:1154
+#: options.php:1205
 msgid "Installation failed."
 msgstr ""
 
-#: options.php:1000
+#: options.php:1165
 msgid "You do not have permission to update themes."
 msgstr ""
 
-#: options.php:1007
+#: options.php:1172
 msgid "Invalid request (theme)."
 msgstr ""
 
-#: options.php:1037
+#: options.php:1202
 msgid "Theme installed/updated."
 msgstr ""
 
-#: options.php:1130
+#: options.php:1295
 msgid "No changelog found."
 msgstr ""
 
