@@ -22,6 +22,7 @@
  *    endast `/releases/latest`. Om PÅ används `/releases?per_page=10` och första icke-draft
  *    plockas (kan vara prerelease).
  */
+define('RG_UPDATER_DEBUG_ENABLED', get_option('rgplugins_debug_mode', '0') === '1');
 if (!function_exists('rg_updater_log')) {
   /**
    * En liten wrapper för att logga till debug.log när WP_DEBUG är på.
@@ -31,7 +32,7 @@ if (!function_exists('rg_updater_log')) {
    */
 function rg_updater_log($msg) {
     // Only log if both WP_DEBUG and rgplugins_debug_mode are enabled
-    if (get_option('rgplugins_debug_mode', '0') !== '1') {
+    if (!defined('RG_UPDATER_DEBUG_ENABLED') || !RG_UPDATER_DEBUG_ENABLED) {
       return;
     }
     if (defined('WP_DEBUG') && WP_DEBUG) {
@@ -539,6 +540,13 @@ add_filter('http_response', function ($response, $args, $url) {
     return $response;
   }
   $code = (int) wp_remote_retrieve_response_code($response);
+  $last_verified = (int) get_option('rgplugins_token_last_verified', 0);
+  $recent_check = (time() - $last_verified) < DAY_IN_SECONDS;
+
+  if (!wp_doing_cron() && $recent_check) {
+      return $response; // redan kontrollerat senaste dygnet
+  }
+
   if ($code === 200) {
     rg_updater_mark_token_status(true, $url);
   } elseif ($code === 401) { // Unauthorized → trolig utgången/ogiltig token
@@ -556,6 +564,7 @@ add_filter('http_response', function ($response, $args, $url) {
  *  - Returnerar en lokal temp-filväg som WP Upgrader sedan använder.
  */
 add_filter('upgrader_pre_download', function ($reply, $package, $upgrader) {
+  if (!RG_UPDATER_DEBUG_ENABLED) return $reply;
   if (strpos($package, 'api.github.com/repos') === false && strpos($package, 'codeload.github.com') === false) {
     return $reply; // inte vår URL
   }
@@ -580,7 +589,7 @@ add_filter('upgrader_pre_download', function ($reply, $package, $upgrader) {
   }
   $response = wp_remote_get($package, [
     'headers'     => $headers,
-    'timeout'     => 300,
+    'timeout'     => 60,
     'stream'      => true,
     'filename'    => $tmp,
     'redirection' => 5,
@@ -622,41 +631,106 @@ add_filter('upgrader_pre_download', function ($reply, $package, $upgrader) {
  *   3) Fallback: leta efter valfri .php med giltig plugin-header i subdir eller rot
  */
 add_filter('upgrader_source_selection', function ($source, $remote_source, $upgrader, $hook_extra) {
+  if (!RG_UPDATER_DEBUG_ENABLED && !wp_doing_cron()) {
+    return $source;
+  }
   rg_updater_log('source_selection: source=' . $source . ' remote_source=' . $remote_source . ' hook_extra=' . json_encode($hook_extra));
+
+  global $wp_filesystem;
+  if (empty($wp_filesystem) || !is_object($wp_filesystem)) {
+    require_once ABSPATH . '/wp-admin/includes/file.php';
+    WP_Filesystem();
+  }
 
   // === THEME handling: pick directory that contains a valid style.css (Theme Name header) ===
   if (!empty($hook_extra['theme'])) {
-    $is_theme_dir = function ($dir) {
+    $is_theme_dir = function ($dir) use ($wp_filesystem) {
       $style = trailingslashit($dir) . 'style.css';
-      if (!file_exists($style)) return false;
-      $contents = @file_get_contents($style, false, null, 0, 8192);
+      if ($wp_filesystem && is_object($wp_filesystem)) {
+        if (!$wp_filesystem->exists($style)) return false;
+        $contents = @$wp_filesystem->get_contents($style, false, null, 0, 1024);
+      } else {
+        if (!file_exists($style)) return false;
+        $contents = @file_get_contents($style, false, null, 0, 1024);
+      }
       if ($contents === false) return false;
       return (bool)preg_match('/^\s*Theme\s*Name\s*:\s*(.+)$/mi', $contents);
     };
 
+    $found_theme_dir = null;
+
     // 1) Already a theme root?
     if ($is_theme_dir($source)) {
-      rg_updater_log('theme: style.css found at top-level; returning source');
-      return $source;
+      rg_updater_log('theme: style.css found at top-level; will ensure correct theme dir');
+      $found_theme_dir = $source;
     }
 
     // 2) Search one level deep
-    $dirs_lvl1 = glob(trailingslashit($source) . '*', GLOB_ONLYDIR) ?: [];
-    foreach ($dirs_lvl1 as $d1) {
-      if ($is_theme_dir($d1)) {
-        rg_updater_log('theme: style.css found one level deep in ' . $d1);
-        return $d1;
+    if (!$found_theme_dir) {
+      $dirs_lvl1 = glob(trailingslashit($source) . '*', GLOB_ONLYDIR) ?: [];
+      foreach ($dirs_lvl1 as $d1) {
+        if ($is_theme_dir($d1)) {
+          rg_updater_log('theme: style.css found one level deep in ' . $d1);
+          $found_theme_dir = $d1;
+          break;
+        }
       }
     }
 
     // 3) Search two levels deep (monorepo patterns like /themes/<slug>/)
-    foreach ($dirs_lvl1 as $d1) {
-      $dirs_lvl2 = glob(trailingslashit($d1) . '*', GLOB_ONLYDIR) ?: [];
-      foreach ($dirs_lvl2 as $d2) {
-        if ($is_theme_dir($d2)) {
-          rg_updater_log('theme: style.css found two levels deep in ' . $d2);
-          return $d2;
+    if (!$found_theme_dir) {
+      $dirs_lvl1 = glob(trailingslashit($source) . '*', GLOB_ONLYDIR) ?: [];
+      foreach ($dirs_lvl1 as $d1) {
+        $dirs_lvl2 = glob(trailingslashit($d1) . '*', GLOB_ONLYDIR) ?: [];
+        foreach ($dirs_lvl2 as $d2) {
+          if ($is_theme_dir($d2)) {
+            rg_updater_log('theme: style.css found two levels deep in ' . $d2);
+            $found_theme_dir = $d2;
+            break 2;
+          }
         }
+      }
+    }
+
+    // If found, ensure the directory matches the theme slug and move if needed
+    if ($found_theme_dir) {
+      $theme_slug = $hook_extra['theme'];
+      $expected_path = trailingslashit(get_theme_root() . '/' . $theme_slug);
+      // Ensure the filesystem is initialized
+      if (empty($wp_filesystem) || !is_object($wp_filesystem)) {
+        require_once ABSPATH . '/wp-admin/includes/file.php';
+        WP_Filesystem();
+      }
+      // If the found dir is not the expected path, move it
+      if (rtrim($found_theme_dir, '/\\') !== rtrim($expected_path, '/\\')) {
+        // Remove existing expected_path if it exists
+        if ($wp_filesystem->is_dir($expected_path)) {
+          $wp_filesystem->delete($expected_path, true);
+        }
+        // Move/copy found_theme_dir to expected_path
+        $move_result = $wp_filesystem->move($found_theme_dir, $expected_path, true);
+        if (!$move_result) {
+          // Fallback to copy_dir if move fails (e.g. cross-device)
+          if (function_exists('copy_dir')) {
+            $copy_result = copy_dir($found_theme_dir, $expected_path);
+            if (is_wp_error($copy_result)) {
+              rg_updater_log('theme: Failed to copy theme dir to expected path: ' . $expected_path . ' error=' . $copy_result->get_error_message());
+              return $found_theme_dir;
+            } else {
+              $wp_filesystem->delete($found_theme_dir, true);
+              rg_updater_log('theme: Copied theme dir to expected path: ' . $expected_path);
+            }
+          } else {
+            rg_updater_log('theme: Failed to move theme dir to expected path: ' . $expected_path);
+            return $found_theme_dir;
+          }
+        } else {
+          rg_updater_log('theme: Moved theme dir to expected path: ' . $expected_path);
+        }
+        return $expected_path;
+      } else {
+        rg_updater_log('theme: Theme dir already matches expected path: ' . $expected_path);
+        return $expected_path;
       }
     }
     // If not found, fall through to plugin logic/fallbacks below (WP will error if no valid theme)
@@ -678,10 +752,20 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
   if (!empty($main_file)) {
     // Steg 1: kontrollera om pluginets huvudfil ligger i toppnivån
     // 1) Finns pluginets huvudfil i toppnivån av källmappen?
-    if (file_exists($join($source, $main_file))) {
+    $main_file_path = $join($source, $main_file);
+    if ($wp_filesystem && is_object($wp_filesystem)) {
+      $exists_main = $wp_filesystem->exists($main_file_path);
+    } else {
+      $exists_main = file_exists($main_file_path);
+    }
+    if ($exists_main) {
       // Inspektera huvudfilens header
-      $mf = $join($source, $main_file);
-      $snippet = @file_get_contents($mf, false, null, 0, 1024);
+      $mf = $main_file_path;
+      if ($wp_filesystem && is_object($wp_filesystem)) {
+        $snippet = @$wp_filesystem->get_contents($mf, false, null, 0, 1024);
+      } else {
+        $snippet = @file_get_contents($mf, false, null, 0, 1024);
+      }
       $has_header = false;
       $plugin_name = '';
       if ($snippet !== false) {
@@ -712,12 +796,16 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
     }
   }
 
-  // Steg 3: fallback — leta efter plugin-header i underkataloger
+  // Steg 3: fallback — leta efter plugin-header i underkataloger (limit to two levels)
   $dirs = glob(trailingslashit($source) . '*', GLOB_ONLYDIR);
   if (is_array($dirs)) {
     foreach ($dirs as $dir) {
       foreach (glob(trailingslashit($dir) . '*.php') as $phpfile) {
-        $contents = @file_get_contents($phpfile, false, null, 0, 8192);
+        if ($wp_filesystem && is_object($wp_filesystem)) {
+          $contents = @$wp_filesystem->get_contents($phpfile, false, null, 0, 1024);
+        } else {
+          $contents = @file_get_contents($phpfile, false, null, 0, 1024);
+        }
         if ($contents !== false && preg_match('/^\s*\*?\s*Plugin Name:\s*(.+)$/mi', $contents)) {
           rg_updater_log('fallback subdir plugin header in ' . $dir);
           rg_updater_log('ls(dir)=' . json_encode(glob(trailingslashit($dir) . '*')));
@@ -729,7 +817,11 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
 
   // Steg 3b: fallback — eller i rotkatalogen
   foreach (glob(trailingslashit($source) . '*.php') as $phpfile) {
-    $contents = @file_get_contents($phpfile, false, null, 0, 8192);
+    if ($wp_filesystem && is_object($wp_filesystem)) {
+      $contents = @$wp_filesystem->get_contents($phpfile, false, null, 0, 1024);
+    } else {
+      $contents = @file_get_contents($phpfile, false, null, 0, 1024);
+    }
     if ($contents !== false && preg_match('/^\s*\*?\s*Plugin Name:\s*(.+)$/mi', $contents)) {
       rg_updater_log('fallback root-level plugin header in ' . $phpfile . ' returning ' . $source);
       rg_updater_log('ls(source)=' . json_encode(glob(trailingslashit($source) . '*')));
@@ -746,6 +838,7 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
  * upgrader_install_package_result — ren loggning av resultatet
  */
 add_filter('upgrader_install_package_result', function ($result, $hook_extra) {
+  if (!RG_UPDATER_DEBUG_ENABLED) return $result;
   if (is_wp_error($result)) {
     rg_updater_log('install_package_result: ERROR code=' . $result->get_error_code() . ' message=' . $result->get_error_message() . ' data=' . json_encode($result->get_error_data()));
   } else {
@@ -759,6 +852,7 @@ add_filter('upgrader_install_package_result', function ($result, $hook_extra) {
  * upgrader_post_install — logga vad som faktiskt kopierades vart
  */
 add_action('upgrader_post_install', function ($true, $hook_extra, $result) {
+  if (!RG_UPDATER_DEBUG_ENABLED) return $true;
   rg_updater_log('post_install: destination=' . ($result['destination'] ?? '') . ' source=' . ($result['source'] ?? ''));
   if (!empty($result['destination'])) {
     rg_updater_log('ls(destination)=' . json_encode(glob(trailingslashit($result['destination']) . '*')));

@@ -70,8 +70,13 @@ add_filter('site_status_tests', function($tests) {
  * @return array
  */
 function rg_git_updater_health_test() {
+    // Transient cache for the whole test result
+    $cached_result = get_transient('rg_git_updater_health_result');
+    if ($cached_result) {
+        return $cached_result;
+    }
     // Log that the test was run
-    if (function_exists('rg_updater_log')) {
+    if (defined('RG_UPDATER_DEBUG_ENABLED') && RG_UPDATER_DEBUG_ENABLED && function_exists('rg_updater_log')) {
         rg_updater_log('Site Health test: rg_git_updater_health_test called');
     }
 
@@ -102,8 +107,18 @@ function rg_git_updater_health_test() {
     $release_status = 'N/A';
     $release_date = null;
     $release_label = '';
-    $github_plugins = function_exists('get_github_plugins') ? get_github_plugins(false) : array();
-    $github_themes  = function_exists('get_github_themes') ? get_github_themes(false) : array();
+
+    $github_items = get_transient('rgplugins_sitehealth_cache');
+    if (!$github_items) {
+        $github_plugins = function_exists('get_github_plugins') ? get_github_plugins(false) : [];
+        $github_themes  = function_exists('get_github_themes') ? get_github_themes(false) : [];
+        $github_items = array_merge($github_plugins, $github_themes);
+        set_transient('rgplugins_sitehealth_cache', $github_items, 5 * MINUTE_IN_SECONDS);
+    } else {
+        $github_plugins = $github_items;
+        $github_themes = [];
+    }
+
     $item = null;
     if (!empty($github_plugins)) {
         $item = $github_plugins[0];
@@ -114,17 +129,13 @@ function rg_git_updater_health_test() {
         // Find the transient key for this repo
         $repo_url = $item['github'];
         $include_pre = get_option('rgplugins_include_prereleases', '0') === '1';
-        $cache_key = 'github_release_' . md5($repo_url . '|' . ($include_pre ? 'pre' : 'stable'));
+        $cache_key = 'gh_rel_' . md5($repo_url . ($include_pre ? '_pre' : '_st'));
         $transient = get_transient($cache_key);
         $release_label = $item['name'] . ' (' . $repo_url . ')';
         if ($transient && $transient !== 'N/A') {
             $release_status = $transient;
             // Try to get transient timeout (for when it was set)
-            global $wpdb;
-            $timeout_val = $wpdb->get_var( $wpdb->prepare(
-                "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s",
-                '_transient_timeout_' . $cache_key
-            ));
+            $timeout_val = get_option('_transient_timeout_' . $cache_key);
             if ($timeout_val) {
                 // WP stores it as a timestamp for expiration; subtract 1h or 5min to estimate set time
                 $timeout = (int)$timeout_val;
@@ -210,7 +221,7 @@ function rg_git_updater_health_test() {
         esc_html__('Go to settings', 'rg-git-updater')
     );
 
-    return array(
+    $result = array(
         'status'      => $status,
         'label'       => $label,
         'description' => $description,
@@ -218,4 +229,6 @@ function rg_git_updater_health_test() {
         'actions'     => $actions,
         'test'        => 'rg_git_updater_health_test',
     );
+    set_transient('rg_git_updater_health_result', $result, 60);
+    return $result;
 }

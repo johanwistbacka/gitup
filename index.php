@@ -1,4 +1,5 @@
 <?php
+defined('ABSPATH') || exit;
 /*
 Plugin Name: Rätt Grafiska Git Updater
 Description: Handles automatic updates for Ratt Grafiska's plugins via GitHub.
@@ -14,22 +15,10 @@ if (!class_exists("RgGitUpdaterClass")) {
 
     // Ladda översättningar
     add_action('plugins_loaded', function () {
+        static $loaded = false;
+        if ($loaded) return;
         load_plugin_textdomain('rg-git-updater', false, dirname(plugin_basename(__FILE__)) . '/languages');
-        // Fallback: explicitly load locale-specific .mo if default loader misses
-        if (function_exists('get_locale')) {
-            $locale = function_exists('determine_locale') ? determine_locale() : get_locale();
-            $base   = plugin_dir_path(__FILE__) . 'languages/';
-            $mofile = $base . 'rg-git-updater-' . $locale . '.mo';
-            if (file_exists($mofile)) {
-                load_textdomain('rg-git-updater', $mofile);
-            } else {
-                // Some tools output only sv_SE.mo without the text domain prefix
-                $fallback = $base . $locale . '.mo';
-                if (file_exists($fallback)) {
-                    load_textdomain('rg-git-updater', $fallback);
-                }
-            }
-        }
+        $loaded = true;
     });
 
     // Ladda själva uppdateringsmotorn och options-sidan
@@ -39,29 +28,29 @@ require_once plugin_dir_path(__FILE__) . "site-health.php";
 require_once plugin_dir_path(__FILE__) . 'update-hooks.php';
 // Enqueue plugin CSS and JS only on the settings page
 add_action('admin_enqueue_scripts', function($hook) {
-    $screen = get_current_screen();
-    if ($screen && $screen->id === 'tools_page_rgplugins-settings') {
-        wp_enqueue_style(
-            'rg-gitup-css',
-            plugin_dir_url(__FILE__) . 'assets/css/gitup.css',
-            [],
-            filemtime(plugin_dir_path(__FILE__) . 'assets/css/gitup.css')
-        );
-        wp_enqueue_script(
-            'rg-gitup-js',
-            plugin_dir_url(__FILE__) . 'assets/js/gitup.js',
-            ['jquery'],
-            filemtime(plugin_dir_path(__FILE__) . 'assets/js/gitup.js'),
-            true
-        );
-    }
+    if ($hook !== 'tools_page_rgplugins-settings') return;
+    $version = '2025.09.18.01';
+    wp_enqueue_style(
+        'rg-gitup-css',
+        plugin_dir_url(__FILE__) . 'assets/css/gitup.css',
+        [],
+        $version
+    );
+    wp_enqueue_script(
+        'rg-gitup-js',
+        plugin_dir_url(__FILE__) . 'assets/js/gitup.js',
+        ['jquery'],
+        $version,
+        true
+    );
 });
 
 }
-add_filter('plugin_row_meta', function ($links, $file) {
+add_filter('plugin_row_meta', function($links, $file) {
     if ($file === plugin_basename(__FILE__)) {
         $icon_url = plugin_dir_url(__FILE__) . 'assets/images/icon.png';
         array_unshift($links, '<img src="' . esc_url($icon_url) . '" style="width:20px;height:20px;vertical-align:middle;margin-right:4px;">');
+        $links[] = '<a href="' . esc_url(admin_url('tools.php?page=rgplugins-settings')) . '">' . __('Settings', 'rg-git-updater') . '</a>';
     }
     return $links;
 }, 10, 2);
@@ -71,11 +60,3 @@ add_filter('plugin_action_links_' . plugin_basename(__FILE__), function($links) 
     array_unshift($links, $settings_link);
     return $links;
 });
-
-// Lägg till "Settings"-länk i plugin_row_meta (under beskrivningen)
-add_filter('plugin_row_meta', function($links, $file) {
-    if ($file === plugin_basename(__FILE__)) {
-        $links[] = '<a href="' . esc_url(admin_url('tools.php?page=rgplugins-settings')) . '">' . __('Settings', 'rg-git-updater') . '</a>';
-    }
-    return $links;
-}, 10, 2);
