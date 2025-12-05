@@ -255,8 +255,7 @@ add_action('admin_menu', function () {
     'update_core',                               // capability (alt: update_plugins)
     'rgplugins-settings',                        // slug (keep)
     'rgplugins_settings_page'
-    // Removed icon argument for submenu page
-  );
+);
 });
 
 // Ensure the submenu icon uses proper scaling for WP admin menu (20x20)
