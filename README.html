@@ -5,14 +5,14 @@
 </head>
 <body>
 
-<h1 id="rg-git-updater">rg-git-updater</h1>
+<h1 id="gitup">GitUp</h1>
 
 <blockquote>
-<p><strong>Version:</strong> 2025.09.17.01-beta
-Hanterar automatiska uppdateringar för plugins via GitHub.</p>
+<p><strong>Version:</strong> 2026.03.16.01
+Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.</p>
 </blockquote>
 
-<h1 id="rggitupdater">RG Git Updater</h1>
+<h1 id="gitup-1">GitUp</h1>
 
 <p>En WordPress-plugin som hanterar <strong>automatiska uppdateringar</strong> för plugins och teman via <strong>GitHub Releases</strong>.</p>
 
@@ -34,7 +34,7 @@ Hanterar automatiska uppdateringar för plugins via GitHub.</p>
 <h2 id="installation">Installation</h2>
 
 <ol>
-<li>Klona eller ladda ner detta repo till <code>wp-content/plugins/rg-git-updater</code>.</li>
+<li>Klona eller ladda ner detta repo till <code>wp-content/plugins/gitup</code>.</li>
 <li>Aktivera tillägget i WordPress admin.</li>
 <li>Navigera till <strong>Verktyg → GitHub-uppdateringar</strong> för att konfigurera.</li>
 </ol>
@@ -122,7 +122,7 @@ Hanterar automatiska uppdateringar för plugins via GitHub.</p>
 
 <ul>
 <li>Kod följer PSR-4 och är kraftigt kommenterad för att underlätta felsökning.</li>
-<li>Updateringslogiken finns i <code>rg-git-updater.php</code>.</li>
+<li>Updateringslogiken finns i <code>gitup-updater.php</code>.</li>
 <li>Admin/UI i <code>options.php</code>.</li>
 </ul>
 
@@ -163,12 +163,20 @@ Hanterar automatiska uppdateringar för plugins via GitHub.</p>
 <ul>
 <li>Stöd för att välja release direkt från wp-admin/update-core.php (avviker från WordPress-standard, så ej prioriterad).</li>
 <li>Stöd för GitHub-webhooks för att trigga uppdateringskontroll vid ny release.</li>
-<li>Lägg till WP-CLI-kommandon (<code>wp rg-updater check</code>, <code>wp rg-updater update</code>).</li>
+<li>Lägg till WP-CLI-kommandon (<code>wp gitup check</code>, <code>wp gitup update</code>).</li>
 <li>Fallback till GitHub commits om inga releasetaggar finns.</li>
 <li>Möjlighet att uppdatera alla plugins/teman i en batch från options-sidan.</li>
 </ul>
 
 <h2 id="changelog">Changelog</h2>
+
+<h3 id="2026.03.16.01">2026.03.16.01</h3>
+
+<ul>
+<li>Bytt pluginidentitet fullt ut till GitUp, inklusive pluginmapp, textdomän och interna <code>gitup_*</code>-identifierare.</li>
+<li>Rensat bort kvarvarande <code>rg*</code>-rester i kod, språkfiler och dokumentation.</li>
+<li>Förenklat uppdateringskärnan genom att ta bort legacy-alias och dubbla wrapper-funktioner.</li>
+</ul>
 
 <h3 id="2025.09.17.01-beta">2025.09.17.01-beta</h3>
 
@@ -223,7 +231,7 @@ Hanterar automatiska uppdateringar för plugins via GitHub.</p>
 
 <ul>
 <li>Förberett språkstöd: lagt till <code>load_plugin_textdomain()</code> och fallback för att säkerställa att översättningar laddas korrekt.</li>
-<li>Alla UI-strängar på options-sidan översatta till engelska och wrappade med textdomän <code>rg-git-updater</code>.</li>
+<li>Alla UI-strängar på options-sidan översatta till engelska och wrappade med textdomän <code>gitup</code>.</li>
 <li>Lagt till extra loggning i plugin-uppdateringslogiken: visar när UpdateURI saknas, inte är GitHub eller ingen release hittas.</li>
 <li>Normaliserad versionsjämförelse även för plugins (tar bort <code>v</code> vid jämförelse).</li>
 <li>Mindre UI-fix: justerat tabellutseende för bättre responsivitet på små skärmar.</li>
@@ -249,7 +257,7 @@ Hanterar automatiska uppdateringar för plugins via GitHub.</p>
 <p>För att göra en release, följ dessa steg:</p>
 
 <ol>
-<li>Uppdatera versionsnumret i pluginets huvudfil (<code>rg-git-updater.php</code>) och i <code>README.md</code> under versionstaggen.</li>
+<li>Uppdatera versionsnumret i pluginets huvudfil (<code>gitup-updater.php</code>) och i <code>README.md</code> under versionstaggen.</li>
 <li>Commit:a ändringarna med ett beskrivande meddelande, t.ex. &#8220;Bump version to x.y.z&#8221;.</li>
 <li>Skapa en Git-tag med versionsnumret, t.ex. <code>git tag -a x.y.z -m &quot;Release x.y.z&quot;</code>.</li>
 <li>Pusha både commit och tag till GitHub: <code>git push origin main --tags</code>.</li>
@@ -260,4 +268,3 @@ Hanterar automatiska uppdateringar för plugins via GitHub.</p>
 
 </body>
 </html>
-

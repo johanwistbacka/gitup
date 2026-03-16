@@ -1,9 +1,9 @@
-# Copyright (C) 2025 Ratt Grafiska
-# This file is distributed under the same license as the Rätt Grafiska Git Updater plugin.
+# Copyright (C) 2025 Johan Wistbacka
+# This file is distributed under the same license as the GitUp plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: Rätt Grafiska Git Updater 2025.09.18.01\n"
-"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/rg-git-updater\n"
+"Project-Id-Version: GitUp 2026.03.16.01\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/gitup\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
@@ -12,26 +12,26 @@ msgstr ""
 "POT-Creation-Date: 2025-09-18T11:27:58+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
-"X-Domain: rg-git-updater\n"
+"X-Domain: gitup\n"
 
 #. Plugin Name of the plugin
 #: index.php
-msgid "Rätt Grafiska Git Updater"
+msgid "GitUp"
 msgstr ""
 
 #. Plugin URI of the plugin
 #: index.php
-msgid "https://github.com/Ratt-Grafiska/rg-git-updater"
+msgid "https://github.com/johanwistbacka/gitup"
 msgstr ""
 
 #. Description of the plugin
 #: index.php
-msgid "Handles automatic updates for Ratt Grafiska's plugins via GitHub."
+msgid "Handles automatic updates for GitHub-hosted plugins and themes."
 msgstr ""
 
 #. Author of the plugin
 #: index.php
-msgid "Ratt Grafiska"
+msgid "Johan Wistbacka"
 msgstr ""
 
 #: index.php:70
@@ -267,7 +267,7 @@ msgid "Debug mode"
 msgstr ""
 
 #: options.php:993
-msgid "Enable logging for RG Git Updater"
+msgid "Enable logging for GitUp"
 msgstr ""
 
 #: options.php:1003
@@ -330,51 +330,51 @@ msgstr ""
 msgid "No changelog found."
 msgstr ""
 
-#: rg-git-updater.php:510
-msgid "RG Git Updater – GitHub token is no longer working"
+#: gitup-updater.php:510
+msgid "GitUp – GitHub token is no longer working"
 msgstr ""
 
-#: rg-git-updater.php:514
+#: gitup-updater.php:514
 #, php-format
 msgid "Your GitHub token on \"%s\" appears to be invalid or has expired."
 msgstr ""
 
-#: rg-git-updater.php:518
+#: gitup-updater.php:518
 #, php-format
 msgid "Action: <a href=\"%s\">Go to Tools → GitHub Updates and update the token.</a>"
 msgstr ""
 
-#: rg-git-updater.php:521
+#: gitup-updater.php:521
 msgid "Tip: Also verify the scopes (e.g. repo) if you need access to private repositories."
 msgstr ""
 
-#: rg-git-updater.php:522
+#: gitup-updater.php:522
 msgid "Last checked:"
 msgstr ""
 
-#: rg-git-updater.php:523
+#: gitup-updater.php:523
 msgid "Error at URL:"
 msgstr ""
 
-#: rg-git-updater.php:579
+#: gitup-updater.php:579
 msgid "Could not create temporary file."
 msgstr ""
 
-#: rg-git-updater.php:601
+#: gitup-updater.php:601
 #, php-format
 msgid "GitHub did not return a ZIP (Content-Type: %s). Check token/access and the release tag."
 msgstr ""
 
-#: rg-git-updater.php:607
+#: gitup-updater.php:607
 #, php-format
 msgid "GitHub download failed (HTTP %s)."
 msgstr ""
 
-#: rg-git-updater.php:834
-msgid "RG Git Updater: Your GitHub token appears invalid or has expired."
+#: gitup-updater.php:834
+msgid "GitUp: Your GitHub token appears invalid or has expired."
 msgstr ""
 
-#: rg-git-updater.php:835
+#: gitup-updater.php:835
 msgid "Update the token here."
 msgstr ""
 
@@ -389,7 +389,7 @@ msgstr ""
 #: site-health.php:19
 #: site-health.php:33
 #: site-health.php:46
-msgid "RG Git Updater"
+msgid "GitUp"
 msgstr ""
 
 #: site-health.php:22
@@ -423,7 +423,7 @@ msgid "Token last verified on %s."
 msgstr ""
 
 #: site-health.php:61
-msgid "RG Git Updater status"
+msgid "GitUp status"
 msgstr ""
 
 #: site-health.php:89

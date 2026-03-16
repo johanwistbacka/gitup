@@ -1,6 +1,6 @@
 <?php
 /**
- * RG Git Updater — GitHub-baserade uppdateringar för plugins & teman
+ * GitUp — GitHub-baserade uppdateringar för plugins & teman
  *
  * Översikt
  * --------
@@ -8,7 +8,7 @@
  *    senaste version från GitHub Releases.
  *  - Hämtar paket via codeload.github.com (zip) och ser till att installationen
  *    landar i rätt mapp (utan att mappnamnet får med taggen).
- *  - Har defensiv loggning till debug.log via rg_updater_log() när WP_DEBUG är true.
+ *  - Har defensiv loggning till debug.log via `gitup_log()` när WP_DEBUG är true.
  *
  * Prestanda & cache
  * -----------------
@@ -22,28 +22,182 @@
  *    endast `/releases/latest`. Om PÅ används `/releases?per_page=10` och första icke-draft
  *    plockas (kan vara prerelease).
  */
-if (!function_exists('rg_updater_log')) {
+if (!function_exists('gitup_log')) {
   /**
    * En liten wrapper för att logga till debug.log när WP_DEBUG är på.
    * Används flitigt i uppgraderingsflödena för att förenkla felsökning.
    *
    * @param mixed $msg  Sträng/array/objekt som loggas (array/objekt pretty-printas).
    */
-function rg_updater_log($msg) {
-    // Only log if both WP_DEBUG and rgplugins_debug_mode are enabled
-    if (get_option('rgplugins_debug_mode', '0') !== '1') {
+function gitup_log($msg) {
+    // Only log if both WP_DEBUG and gitup_debug_mode are enabled
+    if (get_option('gitup_debug_mode', '0') !== '1') {
       return;
     }
     if (defined('WP_DEBUG') && WP_DEBUG) {
       if (is_array($msg) || is_object($msg)) {
         $msg = print_r($msg, true);
       }
-      error_log('[RG Updater] ' . $msg);
+      error_log('[GitUp] ' . $msg);
     }
   }
 }
 
-if (!class_exists('RgGitUpdaterClass')) {
+if (!function_exists('gitup_normalize_version_tag')) {
+  function gitup_normalize_version_tag($version) {
+    if (!is_string($version)) {
+      return $version;
+    }
+    return ltrim(trim($version), 'vV');
+  }
+}
+
+if (!function_exists('gitup_github_headers')) {
+  function gitup_github_headers() {
+    $headers = [
+      'User-Agent' => 'WordPress Plugin',
+      'Accept'     => 'application/vnd.github+json',
+    ];
+    $token = get_option('gitup_github_token', '');
+    if (!empty($token)) {
+      $headers['Authorization'] = 'Bearer ' . $token;
+    }
+    return $headers;
+  }
+}
+
+if (!function_exists('gitup_get_github_releases_data')) {
+  function gitup_get_github_releases_data($repo_url, $include_prereleases = false, $limit = 10) {
+    $repo_path = parse_url($repo_url, PHP_URL_PATH);
+    if (!$repo_path) {
+      return [];
+    }
+
+    $cache_key = 'github_releases_' . md5($repo_url . '|' . ($include_prereleases ? 'pre' : 'stable') . '|' . (int) $limit);
+    $cached = get_transient($cache_key);
+    if (is_array($cached)) {
+      return $cached;
+    }
+
+    $headers = gitup_github_headers();
+    $api_url = $include_prereleases
+      ? 'https://api.github.com/repos' . $repo_path . '/releases?per_page=' . max(10, (int) $limit)
+      : 'https://api.github.com/repos' . $repo_path . '/releases/latest';
+
+    $response = wp_remote_get($api_url, [
+      'headers'     => $headers,
+      'timeout'     => 20,
+      'redirection' => 3,
+    ]);
+
+    if (is_wp_error($response)) {
+      set_transient($cache_key, [], 5 * MINUTE_IN_SECONDS);
+      return [];
+    }
+
+    $code = (int) wp_remote_retrieve_response_code($response);
+    if ($code === 403) {
+      $error_payload = [['error' => 'rate_limit']];
+      set_transient($cache_key, $error_payload, 5 * MINUTE_IN_SECONDS);
+      return $error_payload;
+    }
+
+    $releases = [];
+    if ($code === 200) {
+      $data = json_decode(wp_remote_retrieve_body($response), true);
+      if ($include_prereleases && is_array($data)) {
+        foreach ($data as $rel) {
+          if (!empty($rel['draft']) || empty($rel['tag_name'])) {
+            continue;
+          }
+          if (!$include_prereleases && !empty($rel['prerelease'])) {
+            continue;
+          }
+          $releases[] = [
+            'tag_name'     => $rel['tag_name'],
+            'name'         => !empty($rel['name']) ? $rel['name'] : $rel['tag_name'],
+            'body'         => $rel['body'] ?? '',
+            'published_at' => $rel['published_at'] ?? '',
+            'html_url'     => $rel['html_url'] ?? '',
+            'prerelease'   => !empty($rel['prerelease']),
+          ];
+          if (count($releases) >= $limit) {
+            break;
+          }
+        }
+      } elseif (is_array($data) && !empty($data['tag_name'])) {
+        $releases[] = [
+          'tag_name'     => $data['tag_name'],
+          'name'         => !empty($data['name']) ? $data['name'] : $data['tag_name'],
+          'body'         => $data['body'] ?? '',
+          'published_at' => $data['published_at'] ?? '',
+          'html_url'     => $data['html_url'] ?? '',
+          'prerelease'   => !empty($data['prerelease']),
+        ];
+      }
+    }
+
+    if (empty($releases)) {
+      $tags_url = 'https://api.github.com/repos' . $repo_path . '/tags?per_page=' . max(10, (int) $limit);
+      $tags_response = wp_remote_get($tags_url, [
+        'headers'     => $headers,
+        'timeout'     => 20,
+        'redirection' => 3,
+      ]);
+
+      if (!is_wp_error($tags_response) && (int) wp_remote_retrieve_response_code($tags_response) === 200) {
+        $tags_data = json_decode(wp_remote_retrieve_body($tags_response), true);
+        if (is_array($tags_data)) {
+          foreach ($tags_data as $tag) {
+            $tag_name = $tag['name'] ?? '';
+            if ($tag_name === '') {
+              continue;
+            }
+
+            if (
+              !$include_prereleases &&
+              preg_match('/(alpha|beta|rc|pre)/i', $tag_name)
+            ) {
+              continue;
+            }
+
+            $releases[] = [
+              'tag_name'     => gitup_normalize_version_tag($tag_name),
+              'name'         => gitup_normalize_version_tag($tag_name),
+              'body'         => '',
+              'published_at' => '',
+              'html_url'     => !empty($tag['commit']['sha'])
+                ? 'https://github.com' . $repo_path . '/commit/' . $tag['commit']['sha']
+                : '',
+              'prerelease'   => false,
+            ];
+
+            if (count($releases) >= $limit) {
+              break;
+            }
+          }
+
+          usort($releases, function ($a, $b) {
+            return version_compare(
+              gitup_normalize_version_tag($b['tag_name']),
+              gitup_normalize_version_tag($a['tag_name'])
+            );
+          });
+        }
+      }
+    }
+
+    set_transient(
+      $cache_key,
+      $releases,
+      empty($releases) ? 5 * MINUTE_IN_SECONDS : HOUR_IN_SECONDS
+    );
+
+    return $releases;
+  }
+}
+
+if (!class_exists('GitUpUpdater')) {
   /**
    * Huvudklass som integrerar mot GitHub och WordPress uppdaterings-API.
    *
@@ -53,7 +207,7 @@ if (!class_exists('RgGitUpdaterClass')) {
    *  - Hämta senaste release och cacha resultat.
    *  - Respektera inställningen för förhandsreleaser (beta/rc).
    */
-  class RgGitUpdaterClass {
+  class GitUpUpdater {
     // Singleton-instans för att undvika dubbla hook-registreringar
     private static $instance = null;
     // Token från inställningar – används som Authorization mot GitHub
@@ -64,14 +218,14 @@ if (!class_exists('RgGitUpdaterClass')) {
      * Gör inga tunga anrop här – endast hook-registrering.
      */
     private function __construct() {
-      $this->github_token = get_option('rgplugins_github_token', '');
+      $this->github_token = get_option('gitup_github_token', '');
       // === Plugins: mata in uppdateringar + info-popup ===
       add_filter('pre_set_site_transient_update_plugins', [$this, 'check_for_update']);
       add_filter('plugins_api', [$this, 'plugin_info'], 10, 3);
       // === Teman: mata in uppdateringar + info-popup ===
       add_filter('pre_set_site_transient_update_themes', [$this, 'check_for_theme_update']);
       add_filter('themes_api', [$this, 'theme_info'], 10, 3);
-      rg_updater_log('RgGitUpdaterClass: theme update hooks registered');
+      gitup_log('GitUpUpdater: theme update hooks registered');
     }
 
     public static function get_instance() {
@@ -106,30 +260,30 @@ if (!class_exists('RgGitUpdaterClass')) {
       $plugins = get_plugins();
       foreach ($plugins as $plugin_path => $plugin_info) {
         if (empty($plugin_info['UpdateURI'])) {
-          rg_updater_log('plugin check: skipped (no UpdateURI) ' . $plugin_path);
+          gitup_log('plugin check: skipped (no UpdateURI) ' . $plugin_path);
           continue; // Only plugins with UpdateURI
         }
         $repo_url = $plugin_info['UpdateURI'];
         if (strpos($repo_url, 'github.com') === false) {
-          rg_updater_log('plugin check: skipped (non-GitHub UpdateURI) ' . $plugin_path . ' uri=' . $repo_url);
+          gitup_log('plugin check: skipped (non-GitHub UpdateURI) ' . $plugin_path . ' uri=' . $repo_url);
           continue;
         }
         $latest_release = $this->get_latest_github_release($repo_url);
         if ($latest_release === 'N/A') {
-          rg_updater_log('plugin check: no release tag (N/A) for ' . $plugin_path . ' repo=' . $repo_url);
+          gitup_log('plugin check: no release tag (N/A) for ' . $plugin_path . ' repo=' . $repo_url);
           continue;
         }
         // Normalize versions to handle tags like v1.2.3 vs 1.2.3
         $current_ver  = (string) $plugin_info['Version'];
         $latest_norm  = $this->normalize_version_tag($latest_release);
         $current_norm = $this->normalize_version_tag($current_ver);
-        rg_updater_log('plugin check: ' . $plugin_path . ' current=' . $current_ver . ' latest=' . $latest_release . ' (cmp ' . $current_norm . ' vs ' . $latest_norm . ')');
+        gitup_log('plugin check: ' . $plugin_path . ' current=' . $current_ver . ' latest=' . $latest_release . ' (cmp ' . $current_norm . ' vs ' . $latest_norm . ')');
         if (version_compare($current_norm, $latest_norm, '<')) {
           $plugin_slug = dirname($plugin_path);
           $repo_path   = parse_url($repo_url, PHP_URL_PATH);
           // Använd codeload för binär zip utan Accept-förhandling
           $zip_url     = "https://codeload.github.com{$repo_path}/zip/refs/tags/{$latest_release}";
-          rg_updater_log('Update available for ' . $plugin_path . ' -> tag ' . $latest_release . ' package ' . $zip_url);
+          gitup_log('Update available for ' . $plugin_path . ' -> tag ' . $latest_release . ' package ' . $zip_url);
           $transient->response[$plugin_path] = (object) [
             'slug'        => $plugin_slug,
             'new_version' => $latest_release,
@@ -168,40 +322,14 @@ if (!class_exists('RgGitUpdaterClass')) {
         }
         $repo_url = $plugin_info['UpdateURI'];
         $repo_path = parse_url($repo_url, PHP_URL_PATH);
-        $include_prereleases = get_option('rgplugins_include_prereleases', '0') === '1';
-        $api_url = $include_prereleases
-          ? "https://api.github.com/repos{$repo_path}/releases?per_page=10"
-          : "https://api.github.com/repos{$repo_path}/releases/latest";
-
-        $headers = ['User-Agent' => 'WordPress Plugin', 'Accept' => 'application/vnd.github+json'];
-        if (!empty($this->github_token)) {
-          $headers['Authorization'] = 'Bearer ' . $this->github_token;
-        }
-        $response = wp_remote_get($api_url, ['headers' => $headers, 'timeout' => 20, 'redirection' => 3]);
-        if (is_wp_error($response)) {
+        $releases = $this->get_github_releases($repo_url, 10);
+        if (empty($releases) || !empty($releases[0]['error']) || empty($releases[0]['tag_name'])) {
           return $res;
         }
-        $code = (int) wp_remote_retrieve_response_code($response);
-        if ($code !== 200) {
-          return $res;
-        }
-        $data = json_decode(wp_remote_retrieve_body($response), true);
-        if ($include_prereleases) {
-          $tag = '';
-          if (is_array($data)) {
-            foreach ($data as $rel) {
-              if (!empty($rel['draft'])) { continue; }
-              if (!empty($rel['tag_name'])) { $tag = $rel['tag_name']; break; }
-            }
-          }
-        } else {
-          $tag = is_array($data) ? ($data['tag_name'] ?? '') : '';
-        }
-        if (empty($tag)) {
-          return $res;
-        }
+        $latest = $releases[0];
+        $tag = $latest['tag_name'];
         $zip_url = "https://codeload.github.com{$repo_path}/zip/refs/tags/{$tag}";
-        rg_updater_log('Plugin info for ' . $args->slug . ' -> tag ' . $tag . ' package ' . $zip_url);
+        gitup_log('Plugin info for ' . $args->slug . ' -> tag ' . $tag . ' package ' . $zip_url);
 
         $info                = new stdClass();
         $info->name          = $plugin_info['Name'];
@@ -212,7 +340,7 @@ if (!class_exists('RgGitUpdaterClass')) {
         $info->download_link = $zip_url;
         $info->sections      = [
           'description' => !empty($plugin_info['Description']) ? $plugin_info['Description'] : 'Updates are fetched from GitHub.',
-          'changelog'   => isset($data['body']) ? wp_kses_post($data['body']) : '',
+          'changelog'   => !empty($latest['body']) ? wp_kses_post($latest['body']) : '',
         ];
         return $info;
       }
@@ -231,7 +359,7 @@ if (!class_exists('RgGitUpdaterClass')) {
      */
     private function get_latest_github_release($repo_url) {
       $releases = $this->get_github_releases($repo_url, 1);
-      if (!empty($releases) && !empty($releases[0]['tag_name'])) {
+      if (!empty($releases) && empty($releases[0]['error']) && !empty($releases[0]['tag_name'])) {
         return $releases[0]['tag_name'];
       }
       return 'N/A';
@@ -246,66 +374,15 @@ if (!class_exists('RgGitUpdaterClass')) {
      * @return array
      */
     private function get_github_releases($repo_url, $limit = 10) {
-      $repo_path = parse_url($repo_url, PHP_URL_PATH);
-      $include_prereleases = get_option('rgplugins_include_prereleases', '0') === '1';
-      $api_url = $include_prereleases
-        ? "https://api.github.com/repos{$repo_path}/releases?per_page=" . max(10, $limit)
-        : "https://api.github.com/repos{$repo_path}/releases/latest";
-
-      // Separat cache-nyckel för stable vs pre och antal
-      $cache_key = 'github_releases_' . md5($repo_url . '|' . ($include_prereleases ? 'pre' : 'stable') . "|$limit");
-      $cached    = get_transient($cache_key);
-      if (is_array($cached)) {
-        return $cached;
-      }
-
-      $headers = ['User-Agent' => 'WordPress Plugin', 'Accept' => 'application/vnd.github+json'];
-      if (!empty($this->github_token)) {
-        $headers['Authorization'] = 'Bearer ' . $this->github_token;
-      }
-      $response = wp_remote_get($api_url, ['headers' => $headers, 'timeout' => 20, 'redirection' => 3]);
-      if (is_wp_error($response)) {
-        set_transient($cache_key, [], 5 * MINUTE_IN_SECONDS);
-        return [];
-      }
-      $code = (int) wp_remote_retrieve_response_code($response);
-      if ($code !== 200) {
-        set_transient($cache_key, [], 5 * MINUTE_IN_SECONDS);
-        return [];
-      }
-      $data = json_decode(wp_remote_retrieve_body($response), true);
-      $releases = [];
-      if ($include_prereleases) {
-        if (is_array($data)) {
-          foreach ($data as $rel) {
-            if (!empty($rel['draft'])) { continue; }
-            $releases[] = [
-              'tag_name'     => $rel['tag_name'] ?? '',
-              'body'         => $rel['body'] ?? '',
-              'published_at' => $rel['published_at'] ?? '',
-            ];
-            if (count($releases) >= $limit) break;
-          }
-        }
-      } else {
-        if (is_array($data) && !empty($data['tag_name'])) {
-          $releases[] = [
-            'tag_name'     => $data['tag_name'],
-            'body'         => $data['body'] ?? '',
-            'published_at' => $data['published_at'] ?? '',
-          ];
-        }
-      }
-      set_transient($cache_key, $releases, HOUR_IN_SECONDS);
-      return $releases;
+      $include_prereleases = get_option('gitup_include_prereleases', '0') === '1';
+      return gitup_get_github_releases_data($repo_url, $include_prereleases, $limit);
     }
 
     /**
      * Normalisera versionssträng från tag (t.ex. ta bort inledande "v").
      */
     private function normalize_version_tag($tag) {
-      if (!is_string($tag)) return $tag;
-      return ltrim(trim($tag), 'vV');
+      return gitup_normalize_version_tag($tag);
     }
     /**
      * Annonserar tema-uppdateringar till WordPress core.
@@ -315,12 +392,12 @@ if (!class_exists('RgGitUpdaterClass')) {
      * @return object            Modifierad transient.
      */
     public function check_for_theme_update($transient) {
-      rg_updater_log('check_for_theme_update: start');
+      gitup_log('check_for_theme_update: start');
       if (!is_object($transient)) {
         $transient = new stdClass();
       }
       if (!isset($transient->checked)) {
-        rg_updater_log('check_for_theme_update: no checked property on transient');
+        gitup_log('check_for_theme_update: no checked property on transient');
         return $transient;
       }
       $themes = wp_get_themes();
@@ -345,11 +422,11 @@ if (!class_exists('RgGitUpdaterClass')) {
         $current_ver  = (string) $theme->get('Version');
         $latest_norm  = $this->normalize_version_tag($latest_release);
         $current_norm = $this->normalize_version_tag($current_ver);
-        rg_updater_log('check_for_theme_update: theme=' . $stylesheet . ' current=' . $current_ver . ' latest=' . $latest_release . ' (cmp ' . $current_norm . ' vs ' . $latest_norm . ')');
+        gitup_log('check_for_theme_update: theme=' . $stylesheet . ' current=' . $current_ver . ' latest=' . $latest_release . ' (cmp ' . $current_norm . ' vs ' . $latest_norm . ')');
         if (version_compare($current_norm, $latest_norm, '<')) {
           $repo_path = parse_url($repo_url, PHP_URL_PATH);
           $zip_url = "https://codeload.github.com{$repo_path}/zip/refs/tags/{$latest_release}";
-          rg_updater_log('Theme update available for ' . $stylesheet . ' -> tag ' . $latest_release . ' package ' . $zip_url);
+          gitup_log('Theme update available for ' . $stylesheet . ' -> tag ' . $latest_release . ' package ' . $zip_url);
           $transient->response[$stylesheet] = [
             'theme'       => $stylesheet,
             'new_version' => $latest_release, // behåll originaltaggen i UI
@@ -378,7 +455,7 @@ if (!class_exists('RgGitUpdaterClass')) {
       if ($action !== 'theme_information' || empty($args->slug)) {
         return $res;
       }
-      rg_updater_log('theme_info: request for slug=' . $args->slug);
+      gitup_log('theme_info: request for slug=' . $args->slug);
       $themes = wp_get_themes();
       foreach ($themes as $stylesheet => $theme) {
         if ($stylesheet !== $args->slug) {
@@ -393,19 +470,19 @@ if (!class_exists('RgGitUpdaterClass')) {
           $repo_url = 'https://github.com/' . ltrim($repo_url, '/');
         }
         if (empty($repo_url) || strpos($repo_url, 'github.com') === false) {
-          rg_updater_log('theme_info: no GitHub URI for slug=' . $args->slug);
+          gitup_log('theme_info: no GitHub URI for slug=' . $args->slug);
           return $res;
         }
         $releases = $this->get_github_releases($repo_url, 10);
-        if (!$releases || empty($releases[0]['tag_name'])) {
-          rg_updater_log('theme_info: no releases found');
+        if (!$releases || !empty($releases[0]['error']) || empty($releases[0]['tag_name'])) {
+          gitup_log('theme_info: no releases found');
           return $res;
         }
         $latest = $releases[0];
         $repo_path = parse_url($repo_url, PHP_URL_PATH);
         $tag = $latest['tag_name'];
         $zip_url = "https://codeload.github.com{$repo_path}/zip/refs/tags/{$tag}";
-        rg_updater_log('Theme info for ' . $args->slug . ' -> tag ' . $tag . ' package ' . $zip_url);
+        gitup_log('Theme info for ' . $args->slug . ' -> tag ' . $tag . ' package ' . $zip_url);
         $changelog = '';
         foreach ($releases as $rel) {
           if (empty($rel['tag_name'])) continue;
@@ -429,7 +506,8 @@ if (!class_exists('RgGitUpdaterClass')) {
     }
   }
 
-  RgGitUpdaterClass::get_instance();
+  GitUpUpdater::get_instance();
+
 }
 
 /**
@@ -441,7 +519,7 @@ if (!class_exists('RgGitUpdaterClass')) {
  *  - Loggar vilka headers som gavs (endast när WP_DEBUG=true)
  */
 add_filter('http_request_args', function ($args, $url) {
-  $token = get_option('rgplugins_github_token', '');
+  $token = get_option('gitup_github_token', '');
   $host  = parse_url($url, PHP_URL_HOST);
   $path  = parse_url($url, PHP_URL_PATH);
   if (!$host) {
@@ -469,7 +547,7 @@ add_filter('http_request_args', function ($args, $url) {
   if (isset($headers_for_log['Authorization'])) {
     $headers_for_log['Authorization'] = 'Bearer ***redacted***';
   }
-  rg_updater_log('HTTP args prepared for ' . $url . ' headers=' . json_encode($headers_for_log));
+  gitup_log('HTTP args prepared for ' . $url . ' headers=' . json_encode($headers_for_log));
   return $args;
 }, 10, 2);
 
@@ -480,15 +558,15 @@ add_filter('http_request_args', function ($args, $url) {
  * @param bool   $ok   True vid 200-svar från api.github.com, annars false.
  * @param string $url  URL som gav svaret (för logg och felsökning).
  */
-function rg_updater_mark_token_status($ok, $url = '') {
-  $token = get_option('rgplugins_github_token', '');
+function gitup_mark_token_status($ok, $url = '') {
+  $token = get_option('gitup_github_token', '');
   if ($ok) {
-    update_option('rgplugins_token_status', [
+    update_option('gitup_token_status', [
       'status'        => 'valid',
       'last_checked'  => time(),
       'url'           => $url,
     ]);
-    update_option('rgplugins_token_last_verified', time());
+    update_option('gitup_token_last_verified', time());
     return;
   }
 
@@ -497,34 +575,34 @@ function rg_updater_mark_token_status($ok, $url = '') {
     return;
   }
 
-  update_option('rgplugins_token_status', [
+  update_option('gitup_token_status', [
     'status'        => 'invalid',
     'last_checked'  => time(),
     'url'           => $url,
   ]);
 
   // Skicka mail max 1 gång per dygn
-  if (false === get_transient('rgplugins_token_mail_sent')) {
+  if (false === get_transient('gitup_token_mail_sent')) {
     $admin_email = get_option('admin_email');
     if ($admin_email) {
-      $subject = __('RG Git Updater – GitHub token is no longer working', 'rg-git-updater');
+      $subject = __('GitUp – GitHub token is no longer working', 'gitup');
       $body    = sprintf(
         "%s\n\n%s\n%s\n\n%s\n%s",
         sprintf(
-          __('Your GitHub token on "%s" appears to be invalid or has expired.', 'rg-git-updater'),
+          __('Your GitHub token on "%s" appears to be invalid or has expired.', 'gitup'),
           get_bloginfo('name')
         ),
         sprintf(
-          __('Action: <a href="%s">Go to Tools → GitHub Updates and update the token.</a>', 'rg-git-updater'),
-          esc_url(admin_url('tools.php?page=rgplugins-settings'))
+          __('Action: <a href="%s">Go to Tools → GitHub Updates and update the token.</a>', 'gitup'),
+          esc_url(admin_url('tools.php?page=gitup-settings'))
         ),
-        __('Tip: Also verify the scopes (e.g. repo) if you need access to private repositories.', 'rg-git-updater'),
-        __('Last checked:', 'rg-git-updater') . ' ' . date_i18n(get_option('date_format') . ' ' . get_option('time_format')),
-        $url ? __('Error at URL:', 'rg-git-updater') . ' ' . esc_url_raw($url) : ''
+        __('Tip: Also verify the scopes (e.g. repo) if you need access to private repositories.', 'gitup'),
+        __('Last checked:', 'gitup') . ' ' . date_i18n(get_option('date_format') . ' ' . get_option('time_format')),
+        $url ? __('Error at URL:', 'gitup') . ' ' . esc_url_raw($url) : ''
       );
       wp_mail($admin_email, $subject, $body);
-      set_transient('rgplugins_token_mail_sent', true, DAY_IN_SECONDS);
-      rg_updater_log('Email sent to admin about invalid token');
+      set_transient('gitup_token_mail_sent', true, DAY_IN_SECONDS);
+      gitup_log('Email sent to admin about invalid token');
     }
   }
 }
@@ -540,12 +618,18 @@ add_filter('http_response', function ($response, $args, $url) {
   }
   $code = (int) wp_remote_retrieve_response_code($response);
   if ($code === 200) {
-    rg_updater_mark_token_status(true, $url);
+    gitup_mark_token_status(true, $url);
   } elseif ($code === 401) { // Unauthorized → trolig utgången/ogiltig token
-    rg_updater_mark_token_status(false, $url);
+    gitup_mark_token_status(false, $url);
   }
   return $response;
 }, 10, 3);
+
+if (!function_exists('gitup_mark_token_status')) {
+  function gitup_mark_token_status($ok, $url = '') {
+    gitup_mark_token_status($ok, $url);
+  }
+}
 
 /**
  * upgrader_pre_download — hämtar zip-filen själv så vi kan kontrollera/validera
@@ -559,8 +643,8 @@ add_filter('upgrader_pre_download', function ($reply, $package, $upgrader) {
   if (strpos($package, 'api.github.com/repos') === false && strpos($package, 'codeload.github.com') === false) {
     return $reply; // inte vår URL
   }
-  rg_updater_log('Pre-download package URL: ' . $package);
-  $token = get_option('rgplugins_github_token', '');
+  gitup_log('Pre-download package URL: ' . $package);
+  $token = get_option('gitup_github_token', '');
   $host = parse_url($package, PHP_URL_HOST);
   $path = parse_url($package, PHP_URL_PATH);
   $headers = ['User-Agent' => 'WordPress Plugin'];
@@ -576,7 +660,7 @@ add_filter('upgrader_pre_download', function ($reply, $package, $upgrader) {
   }
   $tmp = wp_tempnam($package);
   if (!$tmp) {
-    return new WP_Error('download_failed', __('Could not create temporary file.', 'rg-git-updater'));
+    return new WP_Error('download_failed', __('Could not create temporary file.', 'gitup'));
   }
   $response = wp_remote_get($package, [
     'headers'     => $headers,
@@ -590,7 +674,7 @@ add_filter('upgrader_pre_download', function ($reply, $package, $upgrader) {
   }
   $code = wp_remote_retrieve_response_code($response);
   $ctype = wp_remote_retrieve_header($response, 'content-type');
-  rg_updater_log('Downloaded package response code=' . $code . ' content-type=' . $ctype . ' saved=' . $tmp);
+  gitup_log('Downloaded package response code=' . $code . ' content-type=' . $ctype . ' saved=' . $tmp);
   // Enkel signaturkontroll av zip (PK\x03\x04) om headern inte är tydligt binär
   // Validera att vi faktiskt fick en zip
   $first2 = @file_get_contents($tmp, false, null, 0, 2);
@@ -598,13 +682,13 @@ add_filter('upgrader_pre_download', function ($reply, $package, $upgrader) {
     if ($first2 !== 'PK') {
       return new WP_Error(
         'download_failed',
-        sprintf(__('GitHub did not return a ZIP (Content-Type: %s). Check token/access and the release tag.', 'rg-git-updater'), $ctype)
+        sprintf(__('GitHub did not return a ZIP (Content-Type: %s). Check token/access and the release tag.', 'gitup'), $ctype)
       );
     }
   }
 
   if ($code !== 200) {
-    return new WP_Error('download_failed', sprintf(__('GitHub download failed (HTTP %s).', 'rg-git-updater'), $code));
+    return new WP_Error('download_failed', sprintf(__('GitHub download failed (HTTP %s).', 'gitup'), $code));
   }
   return $tmp; // Låt upgradern använda vår nedladdade fil
 }, 10, 3);
@@ -622,7 +706,7 @@ add_filter('upgrader_pre_download', function ($reply, $package, $upgrader) {
  *   3) Fallback: leta efter valfri .php med giltig plugin-header i subdir eller rot
  */
 add_filter('upgrader_source_selection', function ($source, $remote_source, $upgrader, $hook_extra) {
-  rg_updater_log('source_selection: source=' . $source . ' remote_source=' . $remote_source . ' hook_extra=' . json_encode($hook_extra));
+  gitup_log('source_selection: source=' . $source . ' remote_source=' . $remote_source . ' hook_extra=' . json_encode($hook_extra));
 
   // === THEME handling: pick directory that contains a valid style.css (Theme Name header) ===
   if (!empty($hook_extra['theme'])) {
@@ -636,7 +720,7 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
 
     // 1) Already a theme root?
     if ($is_theme_dir($source)) {
-      rg_updater_log('theme: style.css found at top-level; returning source');
+      gitup_log('theme: style.css found at top-level; returning source');
       return $source;
     }
 
@@ -644,7 +728,7 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
     $dirs_lvl1 = glob(trailingslashit($source) . '*', GLOB_ONLYDIR) ?: [];
     foreach ($dirs_lvl1 as $d1) {
       if ($is_theme_dir($d1)) {
-        rg_updater_log('theme: style.css found one level deep in ' . $d1);
+        gitup_log('theme: style.css found one level deep in ' . $d1);
         return $d1;
       }
     }
@@ -654,7 +738,7 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
       $dirs_lvl2 = glob(trailingslashit($d1) . '*', GLOB_ONLYDIR) ?: [];
       foreach ($dirs_lvl2 as $d2) {
         if ($is_theme_dir($d2)) {
-          rg_updater_log('theme: style.css found two levels deep in ' . $d2);
+          gitup_log('theme: style.css found two levels deep in ' . $d2);
           return $d2;
         }
       }
@@ -665,9 +749,9 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
   $expected_dir = null;
   $main_file = null;
   if (!empty($hook_extra['plugin'])) {
-    // ex: rg-git-updater/index.php
+    // ex: gitup/index.php
     $plugin_basename = $hook_extra['plugin'];
-    $expected_dir = dirname($plugin_basename); // rg-git-updater
+    $expected_dir = dirname($plugin_basename); // gitup
     $main_file = basename($plugin_basename);   // index.php
   }
 
@@ -690,9 +774,9 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
           $plugin_name = trim($m[1]);
         }
       }
-      rg_updater_log('main file header check: file=' . $mf . ' has_header=' . ($has_header ? 'yes' : 'no') . ' plugin_name=' . $plugin_name);
-      rg_updater_log('main file found at top-level. returning ' . $source);
-      rg_updater_log('ls(source)=' . json_encode(glob(trailingslashit($source) . '*')));
+      gitup_log('main file header check: file=' . $mf . ' has_header=' . ($has_header ? 'yes' : 'no') . ' plugin_name=' . $plugin_name);
+      gitup_log('main file found at top-level. returning ' . $source);
+      gitup_log('ls(source)=' . json_encode(glob(trailingslashit($source) . '*')));
       return $source;
     }
 
@@ -706,8 +790,8 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
     if (!empty($matches)) {
       $plugin_main_path = $matches[0];
       $plugin_dir_found = dirname($plugin_main_path);
-      rg_updater_log('main file found deeper. plugin_dir_found=' . $plugin_dir_found);
-      rg_updater_log('ls(plugin_dir_found)=' . json_encode(glob(trailingslashit($plugin_dir_found) . '*')));
+      gitup_log('main file found deeper. plugin_dir_found=' . $plugin_dir_found);
+      gitup_log('ls(plugin_dir_found)=' . json_encode(glob(trailingslashit($plugin_dir_found) . '*')));
       return $plugin_dir_found;
     }
   }
@@ -719,8 +803,8 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
       foreach (glob(trailingslashit($dir) . '*.php') as $phpfile) {
         $contents = @file_get_contents($phpfile, false, null, 0, 8192);
         if ($contents !== false && preg_match('/^\s*\*?\s*Plugin Name:\s*(.+)$/mi', $contents)) {
-          rg_updater_log('fallback subdir plugin header in ' . $dir);
-          rg_updater_log('ls(dir)=' . json_encode(glob(trailingslashit($dir) . '*')));
+          gitup_log('fallback subdir plugin header in ' . $dir);
+          gitup_log('ls(dir)=' . json_encode(glob(trailingslashit($dir) . '*')));
           return $dir;
         }
       }
@@ -731,14 +815,14 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
   foreach (glob(trailingslashit($source) . '*.php') as $phpfile) {
     $contents = @file_get_contents($phpfile, false, null, 0, 8192);
     if ($contents !== false && preg_match('/^\s*\*?\s*Plugin Name:\s*(.+)$/mi', $contents)) {
-      rg_updater_log('fallback root-level plugin header in ' . $phpfile . ' returning ' . $source);
-      rg_updater_log('ls(source)=' . json_encode(glob(trailingslashit($source) . '*')));
+      gitup_log('fallback root-level plugin header in ' . $phpfile . ' returning ' . $source);
+      gitup_log('ls(source)=' . json_encode(glob(trailingslashit($source) . '*')));
       return $source;
     }
   }
 
-  rg_updater_log('no valid plugin dir detected; returning original source ' . $source);
-  rg_updater_log('ls(source-final)=' . json_encode(glob(trailingslashit($source) . '*')));
+  gitup_log('no valid plugin dir detected; returning original source ' . $source);
+  gitup_log('ls(source-final)=' . json_encode(glob(trailingslashit($source) . '*')));
   return $source;
 }, 10, 4);
 
@@ -747,11 +831,11 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
  */
 add_filter('upgrader_install_package_result', function ($result, $hook_extra) {
   if (is_wp_error($result)) {
-    rg_updater_log('install_package_result: ERROR code=' . $result->get_error_code() . ' message=' . $result->get_error_message() . ' data=' . json_encode($result->get_error_data()));
+    gitup_log('install_package_result: ERROR code=' . $result->get_error_code() . ' message=' . $result->get_error_message() . ' data=' . json_encode($result->get_error_data()));
   } else {
-    rg_updater_log('install_package_result: OK ' . json_encode($result));
+    gitup_log('install_package_result: OK ' . json_encode($result));
   }
-  rg_updater_log('install_package_result hook_extra=' . json_encode($hook_extra));
+  gitup_log('install_package_result hook_extra=' . json_encode($hook_extra));
   return $result;
 }, 10, 2);
 
@@ -759,12 +843,12 @@ add_filter('upgrader_install_package_result', function ($result, $hook_extra) {
  * upgrader_post_install — logga vad som faktiskt kopierades vart
  */
 add_action('upgrader_post_install', function ($true, $hook_extra, $result) {
-  rg_updater_log('post_install: destination=' . ($result['destination'] ?? '') . ' source=' . ($result['source'] ?? ''));
+  gitup_log('post_install: destination=' . ($result['destination'] ?? '') . ' source=' . ($result['source'] ?? ''));
   if (!empty($result['destination'])) {
-    rg_updater_log('ls(destination)=' . json_encode(glob(trailingslashit($result['destination']) . '*')));
+    gitup_log('ls(destination)=' . json_encode(glob(trailingslashit($result['destination']) . '*')));
   }
   if (!empty($result['source'])) {
-    rg_updater_log('ls(source)=' . json_encode(glob(trailingslashit($result['source']) . '*')));
+    gitup_log('ls(source)=' . json_encode(glob(trailingslashit($result['source']) . '*')));
   }
   return $true;
 }, 10, 3);
@@ -777,13 +861,13 @@ add_action('upgrader_post_install', function ($true, $hook_extra, $result) {
  *  WordPress avaktiverar pluginet p.g.a. ändrat mappnamn.
  */
 add_filter('upgrader_package_options', function ($options) {
-  rg_updater_log('package_options(before)=' . json_encode($options));
+  gitup_log('package_options(before)=' . json_encode($options));
 
   // Gäller bara pluginuppdateringar där vi vet vilken plugin som uppdateras
   $hook_extra = isset($options['hook_extra']) && is_array($options['hook_extra']) ? $options['hook_extra'] : [];
   if (!empty($hook_extra['plugin'])) {
-    $plugin_basename = $hook_extra['plugin']; // ex: rg-git-updater/index.php
-    $expected_dir = dirname($plugin_basename); // rg-git-updater
+    $plugin_basename = $hook_extra['plugin']; // ex: gitup/index.php
+    $expected_dir = dirname($plugin_basename); // gitup
 
     if (!empty($options['destination']) && defined('WP_PLUGIN_DIR')) {
       $plugins_dir = trailingslashit(WP_PLUGIN_DIR);
@@ -807,31 +891,31 @@ add_filter('upgrader_package_options', function ($options) {
     }
   }
 
-  rg_updater_log('package_options(after)=' . json_encode($options));
+  gitup_log('package_options(after)=' . json_encode($options));
   return $options;
 });
 
 // Visa en tydlig notice i admin om token markerats som ogiltig, men undertryck vid nyligen ändrad token (ej verifierad än)
 add_action('admin_notices', function () {
   if (!current_user_can('manage_options')) return;
-  $token = get_option('rgplugins_github_token', '');
+  $token = get_option('gitup_github_token', '');
   if (empty($token)) return; // ingen token satt → ingen notice
 
-  $status = get_option('rgplugins_token_status');
+  $status = get_option('gitup_token_status');
   if (!is_array($status)) return;
 
   // Visa inte notice om token nyligen uppdaterats men ännu inte verifierats
   $last_checked = isset($status['last_checked']) ? (int) $status['last_checked'] : 0;
-  $last_updated = (int) get_option('rgplugins_token_last_updated');
+  $last_updated = (int) get_option('gitup_token_last_updated');
   if ($last_updated && (!$last_checked || $last_checked < $last_updated)) {
     return; // token ändrades efter senaste check → vänta tills en ny kontroll skett
   }
 
   if (($status['status'] ?? '') !== 'invalid') return;
 
-  $settings_url = esc_url(admin_url('tools.php?page=rgplugins-settings'));
+  $settings_url = esc_url(admin_url('tools.php?page=gitup-settings'));
 echo '<div class="notice notice-error"><p>'
-   . esc_html__('RG Git Updater: Your GitHub token appears invalid or has expired.', 'rg-git-updater')
-   . ' <a href="' . $settings_url . '">' . esc_html__('Update the token here.', 'rg-git-updater') . '</a>'
+   . esc_html__('GitUp: Your GitHub token appears invalid or has expired.', 'gitup')
+   . ' <a href="' . $settings_url . '">' . esc_html__('Update the token here.', 'gitup') . '</a>'
    . '</p></div>';
 });

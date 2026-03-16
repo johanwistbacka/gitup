@@ -1,8 +1,8 @@
-# rg-git-updater
-> **Version:** 2025.09.18.01
- Hanterar automatiska uppdateringar för plugins via GitHub.
+# GitUp
+> **Version:** 2026.03.16.01
+ Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.
 
-# RG Git Updater
+# GitUp
 
 En WordPress-plugin som hanterar **automatiska uppdateringar** för plugins och teman via **GitHub Releases**.
 
@@ -21,7 +21,7 @@ En WordPress-plugin som hanterar **automatiska uppdateringar** för plugins och 
 
 ## Installation
 
-1. Klona eller ladda ner detta repo till `wp-content/plugins/rg-git-updater`.
+1. Klona eller ladda ner detta repo till `wp-content/plugins/gitup`.
 2. Aktivera tillägget i WordPress admin.
 3. Navigera till **Verktyg → GitHub-uppdateringar** för att konfigurera.
 
@@ -75,7 +75,7 @@ Loggen hittar du i `wp-content/debug.log`.
 ## Utveckling
 
 - Kod följer PSR-4 och är kraftigt kommenterad för att underlätta felsökning.
-- Updateringslogiken finns i `rg-git-updater.php`.
+- Updateringslogiken finns i `gitup-updater.php`.
 - Admin/UI i `options.php`.
 
 ## Kända Begränsningar
@@ -105,11 +105,17 @@ Loggen hittar du i `wp-content/debug.log`.
 ### Eventuella förbättringar
 - Stöd för att välja release direkt från wp-admin/update-core.php (avviker från WordPress-standard, så ej prioriterad).
 - Stöd för GitHub-webhooks för att trigga uppdateringskontroll vid ny release.
-- Lägg till WP-CLI-kommandon (`wp rg-updater check`, `wp rg-updater update`).
+- Lägg till WP-CLI-kommandon (`wp gitup check`, `wp gitup update`).
 - Fallback till GitHub commits om inga releasetaggar finns.
 - Möjlighet att uppdatera alla plugins/teman i en batch från options-sidan.
 
 ## Changelog
+
+### 2026.03.16.01
+- Bytt pluginidentitet fullt ut till GitUp, inklusive pluginmapp, textdomän och interna `gitup_*`-identifierare.
+- Rensat bort kvarvarande `rg*`-rester i kod, språkfiler och dokumentation.
+- Förenklat uppdateringskärnan genom att ta bort legacy-alias och dubbla wrapper-funktioner.
+
 
 ### 2025.09.18.01
 - Full release (ej beta).
@@ -154,7 +160,7 @@ Loggen hittar du i `wp-content/debug.log`.
 
 ### 2025.09.12.04-beta
 - Förberett språkstöd: lagt till `load_plugin_textdomain()` och fallback för att säkerställa att översättningar laddas korrekt.
-- Alla UI-strängar på options-sidan översatta till engelska och wrappade med textdomän `rg-git-updater`.
+- Alla UI-strängar på options-sidan är wrappade med textdomänen `gitup`.
 - Lagt till extra loggning i plugin-uppdateringslogiken: visar när UpdateURI saknas, inte är GitHub eller ingen release hittas.
 - Normaliserad versionsjämförelse även för plugins (tar bort `v` vid jämförelse).
 - Mindre UI-fix: justerat tabellutseende för bättre responsivitet på små skärmar.
@@ -175,7 +181,7 @@ MIT – se [LICENSE](LICENSE)
 
 För att göra en release, följ dessa steg:
 
-1. Uppdatera versionsnumret i pluginets huvudfil (`rg-git-updater.php`) och i `README.md` under versionstaggen.
+1. Uppdatera versionsnumret i pluginets huvudfil (`gitup-updater.php`) och i `README.md` under versionstaggen.
 2. Commit:a ändringarna med ett beskrivande meddelande, t.ex. "Bump version to x.y.z".
 3. Skapa en Git-tag med versionsnumret, t.ex. `git tag -a x.y.z -m "Release x.y.z"`.
 4. Pusha både commit och tag till GitHub: `git push origin main --tags`.

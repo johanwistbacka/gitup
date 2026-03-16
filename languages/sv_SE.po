@@ -1,11 +1,11 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: rg-git-updater\n"
-"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/rg-git-updater\n"
+"Project-Id-Version: GitUp\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/gitup\n"
 "POT-Creation-Date: 2025-09-18T11:27:58+00:00\n"
 "PO-Revision-Date: 2025-09-18 13:40+0200\n"
-"Last-Translator: Johan Wistbacka <johan@rattgrafiska.se>\n"
-"Language-Team: Rätt Grafiska\n"
+"Last-Translator: Johan Wistbacka <johan@wistbacka.dev>\n"
+"Language-Team: GitUp\n"
 "Language: sv_SE\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -17,24 +17,24 @@ msgstr ""
 
 #. Plugin Name of the plugin
 #: index.php
-msgid "Rätt Grafiska Git Updater"
-msgstr "RG GitHub Updater"
+msgid "GitUp"
+msgstr "GitUp"
 
 #. Plugin URI of the plugin
 #: index.php
-msgid "https://github.com/Ratt-Grafiska/rg-git-updater"
-msgstr "https://github.com/Ratt-Grafiska/rg-git-updater"
+msgid "https://github.com/johanwistbacka/gitup"
+msgstr "https://github.com/johanwistbacka/gitup"
 
 #. Description of the plugin
 #: index.php
-msgid "Handles automatic updates for Ratt Grafiska's plugins via GitHub."
+msgid "Handles automatic updates for GitHub-hosted plugins and themes."
 msgstr ""
-"Hanterar automatiska uppdateringar för Rätt Grafiskas plugins och teman via GitHub."
+"Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman."
 
 #. Author of the plugin
 #: index.php
-msgid "Ratt Grafiska"
-msgstr "Rätt Grafiska AB"
+msgid "Johan Wistbacka"
+msgstr "Johan Wistbacka"
 
 #: index.php:70 index.php:78 options.php:390
 msgid "Settings"
@@ -42,11 +42,11 @@ msgstr "Inställningar"
 
 #: options.php:253
 msgid "GitUp – GitHub Updates"
-msgstr "RG GitUp – GitHub Updates"
+msgstr "GitUp – GitHub Updates"
 
 #: options.php:254 options.php:383
 msgid "GitUp"
-msgstr "RG GitUp"
+msgstr "GitUp"
 
 #: options.php:387
 msgid "Manage GitHub-hosted plugin and theme updates for your WordPress site."
@@ -241,8 +241,8 @@ msgid "Debug mode"
 msgstr "Felsökningsläge"
 
 #: options.php:993
-msgid "Enable logging for RG Git Updater"
-msgstr "Aktivera loggning för RG Git Updater"
+msgid "Enable logging for GitUp"
+msgstr "Aktivera loggning för GitUp"
 
 #: options.php:1003 options.php:1046 options.php:1217
 msgid "You do not have permission."
@@ -298,42 +298,42 @@ msgstr "Tema installerat/uppdaterat."
 msgid "No changelog found."
 msgstr "Ingen ändringslogg tillgänglig."
 
-#: rg-git-updater.php:510
-msgid "RG Git Updater – GitHub token is no longer working"
-msgstr "RG Git Updater – GitHub-token fungerar inte längre"
+#: gitup-updater.php:510
+msgid "GitUp – GitHub token is no longer working"
+msgstr "GitUp – GitHub-token fungerar inte längre"
 
-#: rg-git-updater.php:514
+#: gitup-updater.php:514
 #, php-format
 msgid "Your GitHub token on \"%s\" appears to be invalid or has expired."
 msgstr "Din GitHub-token på \"%s\" verkar vara ogiltig eller har löpt ut."
 
-#: rg-git-updater.php:518
+#: gitup-updater.php:518
 #, php-format
 msgid "Action: <a href=\"%s\">Go to Tools → GitHub Updates and update the token.</a>"
 msgstr ""
 "Lösning: <a href=\"%s\">Gå till verktyg > GitHub Updates och uppdatera till en "
 "aktuell GitHub-token.</a>"
 
-#: rg-git-updater.php:521
+#: gitup-updater.php:521
 msgid ""
 "Tip: Also verify the scopes (e.g. repo) if you need access to private repositories."
 msgstr ""
 "Tips: Kontrollera även rättigheterna (t.ex. repository) om du behöver åtkomst till "
 "privata repositories."
 
-#: rg-git-updater.php:522
+#: gitup-updater.php:522
 msgid "Last checked:"
 msgstr "Senast kontrollerad:"
 
-#: rg-git-updater.php:523
+#: gitup-updater.php:523
 msgid "Error at URL:"
 msgstr "Fel vid URL:"
 
-#: rg-git-updater.php:579
+#: gitup-updater.php:579
 msgid "Could not create temporary file."
 msgstr "Kan inte skapa temporär fil."
 
-#: rg-git-updater.php:601
+#: gitup-updater.php:601
 #, php-format
 msgid ""
 "GitHub did not return a ZIP (Content-Type: %s). Check token/access and the release "
@@ -342,16 +342,16 @@ msgstr ""
 "GitHub returnerade inte en ZIP (Content-Type: %s). Kontrollera GitHub-token/åtkomst "
 "och release-taggen."
 
-#: rg-git-updater.php:607
+#: gitup-updater.php:607
 #, php-format
 msgid "GitHub download failed (HTTP %s)."
 msgstr "GitHib nedladdning misslyckades (HTTP %s)"
 
-#: rg-git-updater.php:834
-msgid "RG Git Updater: Your GitHub token appears invalid or has expired."
-msgstr "RG Git Updater: Din GitHub-token verkar vara ogiltig eller har gått ut."
+#: gitup-updater.php:834
+msgid "GitUp: Your GitHub token appears invalid or has expired."
+msgstr "GitUp: Din GitHub-token verkar vara ogiltig eller har gått ut."
 
-#: rg-git-updater.php:835
+#: gitup-updater.php:835
 msgid "Update the token here."
 msgstr "Uppdatera GitHub-token här."
 
@@ -364,8 +364,8 @@ msgid "No GitHub token set"
 msgstr "Ingen GitHub-token angiven"
 
 #: site-health.php:19 site-health.php:33 site-health.php:46
-msgid "RG Git Updater"
-msgstr "RG GitUp"
+msgid "GitUp"
+msgstr "GitUp"
 
 #: site-health.php:22
 msgid "Public repositories will work, but private repositories require a valid token."
@@ -400,8 +400,8 @@ msgid "Token last verified on %s."
 msgstr "Senast verifierad %s."
 
 #: site-health.php:61
-msgid "RG Git Updater status"
-msgstr "GitUp"
+msgid "GitUp status"
+msgstr "GitUp status"
 
 #: site-health.php:89 site-health.php:164
 #, php-format

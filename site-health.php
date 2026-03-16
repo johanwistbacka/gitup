@@ -1,83 +1,83 @@
 <?php 
 /**
- * Site Health: RG Git Updater status test
+ * Site Health: GitUp status test
  */
 
 // Site Health integration: token status
 add_filter('site_status_tests', function ($tests) {
-    $tests['direct']['rg_git_updater_token'] = [
-        'label' => __('GitHub Token Status', 'rg-git-updater'),
+    $tests['direct']['gitup_token'] = [
+        'label' => __('GitHub Token Status', 'gitup'),
         'test'  => function () {
-            $last_verified = intval(get_option('rgplugins_token_last_verified', 0));
-            $token        = get_option('rgplugins_github_token');
+            $last_verified = intval(get_option('gitup_token_last_verified', 0));
+            $token        = get_option('gitup_github_token');
 
             if (empty($token)) {
                 return [
-                    'label'       => __('No GitHub token set', 'rg-git-updater'),
+                    'label'       => __('No GitHub token set', 'gitup'),
                     'status'      => 'recommended',
                     'badge'       => [
-                        'label' => __('RG Git Updater', 'rg-git-updater'),
+                        'label' => __('GitUp', 'gitup'),
                         'color' => 'blue',
                     ],
-                    'description' => __('Public repositories will work, but private repositories require a valid token.', 'rg-git-updater'),
-                    'actions'     => sprintf('<a href="%s">%s</a>', esc_url(admin_url('tools.php?page=rgplugins-settings')), __('Go to settings', 'rg-git-updater')),
-                    'test'        => 'rg_git_updater_token',
+                    'description' => __('Public repositories will work, but private repositories require a valid token.', 'gitup'),
+                    'actions'     => sprintf('<a href="%s">%s</a>', esc_url(admin_url('tools.php?page=gitup-settings')), __('Go to settings', 'gitup')),
+                    'test'        => 'gitup_token',
                 ];
             }
 
             if (!$last_verified || $last_verified < (time() - 30 * DAY_IN_SECONDS)) {
                 return [
-                    'label'       => __('GitHub token has not been verified recently', 'rg-git-updater'),
+                    'label'       => __('GitHub token has not been verified recently', 'gitup'),
                     'status'      => 'recommended',
                     'badge'       => [
-                        'label' => __('RG Git Updater', 'rg-git-updater'),
+                        'label' => __('GitUp', 'gitup'),
                         'color' => 'orange',
                     ],
-                    'description' => __('Your token has not been verified in the last 30 days. Visit settings to re-test.', 'rg-git-updater'),
-                    'actions'     => sprintf('<a href="%s">%s</a>', esc_url(admin_url('tools.php?page=rgplugins-settings')), __('Re-test token', 'rg-git-updater')),
-                    'test'        => 'rg_git_updater_token',
+                    'description' => __('Your token has not been verified in the last 30 days. Visit settings to re-test.', 'gitup'),
+                    'actions'     => sprintf('<a href="%s">%s</a>', esc_url(admin_url('tools.php?page=gitup-settings')), __('Re-test token', 'gitup')),
+                    'test'        => 'gitup_token',
                 ];
             }
 
             return [
-                'label'       => __('GitHub token is valid', 'rg-git-updater'),
+                'label'       => __('GitHub token is valid', 'gitup'),
                 'status'      => 'good',
                 'badge'       => [
-                    'label' => __('RG Git Updater', 'rg-git-updater'),
+                    'label' => __('GitUp', 'gitup'),
                     'color' => 'green',
                 ],
                 'description' => sprintf(
-                    __('Token last verified on %s.', 'rg-git-updater'),
+                    __('Token last verified on %s.', 'gitup'),
                     date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $last_verified)
                 ),
-                'test'        => 'rg_git_updater_token',
+                'test'        => 'gitup_token',
             ];
         }
     ];
     return $tests;
 });
 add_filter('site_status_tests', function($tests) {
-    $tests['direct']['rg_git_updater'] = array(
-        'label'    => __('RG Git Updater status', 'rg-git-updater'),
-        'test'     => 'rg_git_updater_health_test',
+    $tests['direct']['gitup'] = array(
+        'label'    => __('GitUp status', 'gitup'),
+        'test'     => 'gitup_health_test',
     );
     return $tests;
 });
 
 /**
- * Callback for Site Health test: RG Git Updater
+ * Callback for Site Health test: GitUp
  *
  * @return array
  */
-function rg_git_updater_health_test() {
+function gitup_health_test() {
     // Log that the test was run
-    if (function_exists('rg_updater_log')) {
-        rg_updater_log('Site Health test: rg_git_updater_health_test called');
+    if (function_exists('gitup_log')) {
+        gitup_log('Site Health test: gitup_health_test called');
     }
 
-    $token = get_option('rgplugins_github_token', '');
-    $last_verified = (int)get_option('rgplugins_token_last_verified');
-    $last_updated  = (int)get_option('rgplugins_token_last_updated');
+    $token = get_option('gitup_github_token', '');
+    $last_verified = (int)get_option('gitup_token_last_verified');
+    $last_updated  = (int)get_option('gitup_token_last_updated');
     $now = current_time('timestamp');
     $token_status = '';
     $token_ok = false;
@@ -86,15 +86,15 @@ function rg_git_updater_health_test() {
         if ($last_verified) {
             $token_days_ago = floor(($now - $last_verified) / DAY_IN_SECONDS);
             $token_status = sprintf(
-                __('GitHub token verified %s ago', 'rg-git-updater'),
+                __('GitHub token verified %s ago', 'gitup'),
                 human_time_diff($last_verified, $now)
             );
             $token_ok = ($now - $last_verified < 14 * DAY_IN_SECONDS);
         } else {
-            $token_status = __('GitHub token saved, not verified', 'rg-git-updater');
+            $token_status = __('GitHub token saved, not verified', 'gitup');
         }
     } else {
-        $token_status = __('No GitHub token saved', 'rg-git-updater');
+        $token_status = __('No GitHub token saved', 'gitup');
     }
 
     // Try to get release cache for at least one plugin or theme with GitHub UpdateURI
@@ -113,7 +113,7 @@ function rg_git_updater_health_test() {
     if ($item && !empty($item['github'])) {
         // Find the transient key for this repo
         $repo_url = $item['github'];
-        $include_pre = get_option('rgplugins_include_prereleases', '0') === '1';
+        $include_pre = get_option('gitup_include_prereleases', '0') === '1';
         $cache_key = 'github_release_' . md5($repo_url . '|' . ($include_pre ? 'pre' : 'stable'));
         $transient = get_transient($cache_key);
         $release_label = $item['name'] . ' (' . $repo_url . ')';
@@ -141,34 +141,34 @@ function rg_git_updater_health_test() {
     $description = '';
     $actions = array();
     $badge = array(
-        'label' => 'RG Git Updater',
+        'label' => 'GitUp',
         'color' => 'blue',
     );
     // Determine status
     if (empty($token)) {
         $status = 'critical';
-        $description .= __('No GitHub token saved. Private repositories and higher API rate limits require a token.', 'rg-git-updater');
+        $description .= __('No GitHub token saved. Private repositories and higher API rate limits require a token.', 'gitup');
     } elseif (!$token_ok) {
         $status = 'recommended';
-        $description .= __('GitHub token verification is old or missing. Please verify your token.', 'rg-git-updater');
+        $description .= __('GitHub token verification is old or missing. Please verify your token.', 'gitup');
     }
     if ($release_status === 'N/A') {
         $status = ($status === 'critical') ? 'critical' : 'recommended';
-        $description .= '<br>' . __('No recent release info could be loaded from GitHub. Check your token and network.', 'rg-git-updater');
+        $description .= '<br>' . __('No recent release info could be loaded from GitHub. Check your token and network.', 'gitup');
     }
 
     // Build label
     if (!empty($token)) {
         if ($last_verified) {
             $label = sprintf(
-                __('GitHub token verified %s ago', 'rg-git-updater'),
+                __('GitHub token verified %s ago', 'gitup'),
                 human_time_diff($last_verified, $now)
             );
         } else {
-            $label = __('GitHub token saved, not verified', 'rg-git-updater');
+            $label = __('GitHub token saved, not verified', 'gitup');
         }
     } else {
-        $label = __('No GitHub token saved', 'rg-git-updater');
+        $label = __('No GitHub token saved', 'gitup');
     }
 
     // Details for description
@@ -176,26 +176,26 @@ function rg_git_updater_health_test() {
     if (!empty($token)) {
         if ($last_verified) {
             $description .= '<li>' . sprintf(
-                __('Token last verified: %s', 'rg-git-updater'),
+                __('Token last verified: %s', 'gitup'),
                 date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $last_verified)
             ) . '</li>';
         }
         if ($last_updated) {
             $description .= '<li>' . sprintf(
-                __('Token last updated: %s', 'rg-git-updater'),
+                __('Token last updated: %s', 'gitup'),
                 date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $last_updated)
             ) . '</li>';
         }
     }
     if ($release_label) {
         $description .= '<li>' . sprintf(
-            __('Latest release cache for %s: <strong>%s</strong>', 'rg-git-updater'),
+            __('Latest release cache for %s: <strong>%s</strong>', 'gitup'),
             esc_html($release_label),
             esc_html($release_status)
         );
         if ($release_date) {
             $description .= ' — ' . sprintf(
-                __('checked %s ago', 'rg-git-updater'),
+                __('checked %s ago', 'gitup'),
                 human_time_diff($release_date, $now)
             );
         }
@@ -206,8 +206,8 @@ function rg_git_updater_health_test() {
     // Add action to go to settings page
     $actions[] = sprintf(
         '<a href="%s" class="button button-small">%s</a>',
-        esc_url(admin_url('tools.php?page=rgplugins-settings')),
-        esc_html__('Go to settings', 'rg-git-updater')
+        esc_url(admin_url('tools.php?page=gitup-settings')),
+        esc_html__('Go to settings', 'gitup')
     );
 
     return array(
@@ -216,6 +216,6 @@ function rg_git_updater_health_test() {
         'description' => $description,
         'badge'       => $badge,
         'actions'     => $actions,
-        'test'        => 'rg_git_updater_health_test',
+        'test'        => 'gitup_health_test',
     );
 }

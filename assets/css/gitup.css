@@ -1,5 +1,5 @@
 @charset "UTF-8";
-.rgplugins-table {
+.gitup-table {
   table-layout: fixed;
   width: 100%;
   border-collapse: separate;
@@ -15,13 +15,13 @@
   /* Responsive: medium screens */
   /* Responsive: small screens - card layout */
 }
-.rgplugins-table thead th {
+.gitup-table thead th {
   font-weight: 600;
   border-bottom: 1px solid #ececec;
   background: transparent;
   padding: 12px 14px;
 }
-.rgplugins-table tr {
+.gitup-table tr {
   background: #fff;
   border-radius: 4px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -36,25 +36,25 @@
   }
   */
 }
-.rgplugins-table tr:hover {
+.gitup-table tr:hover {
   background-color: rgba(62, 149, 206, 0.062745098);
 }
-.rgplugins-table tbody tr.row.even {
+.gitup-table tbody tr.row.even {
   background-color: rgba(213, 232, 244, 0.062745098);
 }
-.rgplugins-table tbody tr.row.odd {
+.gitup-table tbody tr.row.odd {
   background-color: rgba(131, 187, 224, 0.062745098);
 }
-.rgplugins-table tbody tr.row.update td:first-child {
+.gitup-table tbody tr.row.update td:first-child {
   border-left: 4px solid #0d47a1;
 }
-.rgplugins-table tbody tr.row.downgrade td:first-child {
+.gitup-table tbody tr.row.downgrade td:first-child {
   border-left: 4px solid red;
 }
-.rgplugins-table tbody tr.row.reinstall td:first-child {
+.gitup-table tbody tr.row.reinstall td:first-child {
   border-left: 4px solid #338dca;
 }
-.rgplugins-table .repo a {
+.gitup-table .repo a {
   display: inline-block;
   max-width: 360px;
   font-size: 13px;
@@ -62,49 +62,49 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.rgplugins-table small {
+.gitup-table small {
   font-size: 0.8rem;
 }
-.rgplugins-table td, .rgplugins-table th {
+.gitup-table td, .gitup-table th {
   vertical-align: middle;
   padding: 12px 14px;
 }
-.rgplugins-table td.version, .rgplugins-table th.version {
+.gitup-table td.version, .gitup-table th.version {
   max-width: 150px !important;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.rgplugins-table td.actions, .rgplugins-table th.release {
+.gitup-table td.actions, .gitup-table th.release {
   justify-content: end;
   text-align: right;
 }
-.rgplugins-table td.actions form {
+.gitup-table td.actions form {
   display: flex;
   flex-direction: row;
   justify-content: space-between;
   align-items: stretch;
   gap: 8px;
 }
-.rgplugins-table td.actions select,
-.rgplugins-table td.actions .button {
+.gitup-table td.actions select,
+.gitup-table td.actions .button {
   padding: 3px 6px;
   font-size: 13px;
   line-height: 1.4;
 }
-.rgplugins-table td.actions select {
+.gitup-table td.actions select {
   min-width: 160px;
 }
-.rgplugins-table td.actions .button {
+.gitup-table td.actions .button {
   white-space: nowrap;
 }
-.rgplugins-table td.repo a {
+.gitup-table td.repo a {
   font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.rgplugins-table .rgplugins-toggle-details {
+.gitup-table .gitup-toggle-details {
   background: none;
   border: none;
   font-size: 17px;
@@ -115,48 +115,48 @@
   color: #338dca;
   transition: color 0.2s;
 }
-.rgplugins-table .rgplugins-toggle-details:hover, .rgplugins-table .rgplugins-toggle-details:focus {
+.gitup-table .gitup-toggle-details:hover, .gitup-table .gitup-toggle-details:focus {
   color: #0d47a1;
   outline: none;
 }
-.rgplugins-table .rgplugins-toggle-details::after {
+.gitup-table .gitup-toggle-details::after {
   content: "▶";
   display: inline-block;
   margin-left: 4px;
   transition: transform 0.2s ease;
 }
-.rgplugins-table .rgplugins-toggle-details[aria-expanded=true]::after {
+.gitup-table .gitup-toggle-details[aria-expanded=true]::after {
   transform: rotate(90deg);
 }
-.rgplugins-table .rgplugins-details {
+.gitup-table .gitup-details {
   display: none;
   transition: all 0.3s ease;
 }
-.rgplugins-table .rgplugins-details.open {
+.gitup-table .gitup-details.open {
   display: table-row;
   background: none;
 }
-.rgplugins-table .rgplugins-details td {
+.gitup-table .gitup-details td {
   display: table-cell;
   width: auto;
   vertical-align: top;
 }
-.rgplugins-table .rgplugins-details td.summary {
+.gitup-table .gitup-details td.summary {
   width: 40%;
 }
-.rgplugins-table .rgplugins-details td.notes {
+.gitup-table .gitup-details td.notes {
   width: 60%;
 }
 @media (max-width: 1020px) {
-  .rgplugins-table .repo a {
+  .gitup-table .repo a {
     max-width: 220px;
   }
 }
 @media (max-width: 782px) {
-  .rgplugins-table thead {
+  .gitup-table thead {
     display: none;
   }
-  .rgplugins-table tr {
+  .gitup-table tr {
     display: block;
     margin: 0 0 20px;
     border: 1px solid #ccd0d4;
@@ -165,71 +165,71 @@
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
     padding: 10px;
   }
-  .rgplugins-table td {
+  .gitup-table td {
     display: flex;
     gap: 10px;
     justify-content: space-between;
     border-top: 1px solid #f0f0f1;
     padding: 12px 14px;
   }
-  .rgplugins-table td:first-child {
+  .gitup-table td:first-child {
     border-top: 0;
   }
-  .rgplugins-table td::before {
+  .gitup-table td::before {
     content: attr(data-label);
     font-weight: 600;
     color: #1d2327;
     display: block;
     margin-bottom: 4px;
   }
-  .rgplugins-table td.actions {
+  .gitup-table td.actions {
     display: block;
   }
-  .rgplugins-table td.actions::before {
+  .gitup-table td.actions::before {
     content: attr(data-label);
     display: block;
     margin-bottom: 6px;
     font-weight: 600;
   }
-  .rgplugins-table td.actions form {
+  .gitup-table td.actions form {
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
   }
-  .rgplugins-table td.actions select,
-  .rgplugins-table td.actions .button {
+  .gitup-table td.actions select,
+  .gitup-table td.actions .button {
     width: 100%;
   }
-  .rgplugins-table td.actions .button {
+  .gitup-table td.actions .button {
     text-align: center;
   }
-  .rgplugins-table .repo a {
+  .gitup-table .repo a {
     white-space: normal;
     word-break: break-word;
   }
-  .rgplugins-table select, .rgplugins-table .button {
+  .gitup-table select, .gitup-table .button {
     width: 100%;
   }
 }
 
-#tools_page_rgplugins-settings .wp-menu-image img {
+#tools_page_gitup-settings .wp-menu-image img {
   width: 20px !important;
   height: 20px !important;
   object-fit: contain;
 }
 
-.rgplugins-header h1 {
+.gitup-header h1 {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 16px;
 }
-.rgplugins-header h1 img {
+.gitup-header h1 img {
   width: 40px;
   height: 40px;
 }
-.rgplugins-header h1 h1 {
+.gitup-header h1 h1 {
   margin: 0;
 }
 
@@ -237,30 +237,30 @@
   white-space: pre-line;
 }
 
-.rgplugins-tools {
+.gitup-tools {
   margin-top: 20px;
   display: flex;
   flex-direction: row;
   gap: 16px;
 }
-.rgplugins-tools h3 {
+.gitup-tools h3 {
   margin-top: 0;
   margin-bottom: 8px;
 }
-.rgplugins-tools .button-group {
+.gitup-tools .button-group {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
-.rgplugins-tools .button-group .button {
+.gitup-tools .button-group .button {
   margin: 0;
 }
-.rgplugins-tools .button-group.save-settings {
+.gitup-tools .button-group.save-settings {
   justify-content: flex-start;
 }
-.rgplugins-tools .button-group.test-connection {
+.gitup-tools .button-group.test-connection {
   justify-content: flex-start;
 }
-.rgplugins-tools .button-group.clear-cache {
+.gitup-tools .button-group.clear-cache {
   justify-content: flex-start;
 }

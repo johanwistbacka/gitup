@@ -1,9 +1,9 @@
         // Toggle plugin/theme details row
         document.addEventListener('DOMContentLoaded', function() {
-          document.querySelectorAll('.rgplugins-toggle-details').forEach(function(btn){
+          document.querySelectorAll('.gitup-toggle-details').forEach(function(btn){
             btn.addEventListener('click',function(){
               var details = btn.closest('tr').nextElementSibling;
-              if(details && details.classList.contains('rgplugins-details')){
+              if(details && details.classList.contains('gitup-details')){
                 var isOpen = details.classList.contains('open');
                 details.classList.toggle('open');
                 btn.setAttribute('aria-expanded', !isOpen);
@@ -42,7 +42,7 @@
             return 0;
           }
 
-          document.querySelectorAll('.rg-version-select').forEach(function(select){
+          document.querySelectorAll('.gitup-version-select').forEach(function(select){
             select.addEventListener('change', function() {
               var selectedVersion = select.value;
               // console.log('Selected version:', selectedVersion);
