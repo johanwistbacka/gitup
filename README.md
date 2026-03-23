@@ -1,5 +1,5 @@
 # GitUp
-> **Version:** 2026.03.16.01
+> **Version:** 2026.03.23.01
  Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.
 
 # GitUp
@@ -110,6 +110,11 @@ Loggen hittar du i `wp-content/debug.log`.
 - Möjlighet att uppdatera alla plugins/teman i en batch från options-sidan.
 
 ## Changelog
+
+### 2026.03.23.01
+- Stabiliserat plugin- och temauppdateringar mot GitHub med säkrare repo-/URL-hantering och server-side releasevalidering.
+- Fixat regressionsbuggar vid uppdatering av aktivt tema, inklusive korrekt temarot, destination och stylesheet-hantering i upgraderflödet.
+- Lagt till en körbar regressionssvit för versionslogik, releasehämtning/cache och känsliga theme-upgrader-hooks.
 
 ### 2026.03.16.01
 - Bytt pluginidentitet fullt ut till GitUp, inklusive pluginmapp, textdomän och interna `gitup_*`-identifierare.

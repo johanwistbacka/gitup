@@ -66,6 +66,183 @@ if (!function_exists('gitup_github_headers')) {
   }
 }
 
+if (!function_exists('gitup_normalize_github_repo_url')) {
+  function gitup_normalize_github_repo_url($repo_url) {
+    if (!is_string($repo_url)) {
+      return '';
+    }
+
+    $repo_url = trim($repo_url);
+    if ($repo_url === '') {
+      return '';
+    }
+
+    $host = parse_url($repo_url, PHP_URL_HOST);
+    if ($host === null) {
+      $repo_url = 'https://github.com/' . ltrim($repo_url, '/');
+      $host = parse_url($repo_url, PHP_URL_HOST);
+    }
+
+    $host = strtolower((string) $host);
+    if (!in_array($host, ['github.com', 'www.github.com'], true)) {
+      return '';
+    }
+
+    $path = (string) parse_url($repo_url, PHP_URL_PATH);
+    $path = '/' . trim($path, '/');
+    if ($path === '/' || substr_count(trim($path, '/'), '/') < 1) {
+      return '';
+    }
+
+    return 'https://github.com' . $path;
+  }
+}
+
+if (!function_exists('gitup_build_github_package_url')) {
+  function gitup_build_github_package_url($repo_url, $tag) {
+    $repo_url = gitup_normalize_github_repo_url($repo_url);
+    if ($repo_url === '' || !is_string($tag) || $tag === '') {
+      return '';
+    }
+
+    $repo_path = (string) parse_url($repo_url, PHP_URL_PATH);
+    if ($repo_path === '') {
+      return '';
+    }
+
+    return 'https://codeload.github.com' . $repo_path . '/zip/refs/tags/' . rawurlencode($tag);
+  }
+}
+
+if (!function_exists('gitup_include_prereleases_enabled')) {
+  function gitup_include_prereleases_enabled() {
+    return get_option('gitup_include_prereleases', '0') === '1';
+  }
+}
+
+if (!function_exists('gitup_get_theme_repo_url')) {
+  function gitup_get_theme_repo_url($theme) {
+    if (!is_object($theme) || !method_exists($theme, 'get')) {
+      return '';
+    }
+
+    $repo_url = gitup_normalize_github_repo_url($theme->get('UpdateURI'));
+    if ($repo_url !== '') {
+      return $repo_url;
+    }
+
+    return gitup_normalize_github_repo_url($theme->get('ThemeURI'));
+  }
+}
+
+if (!function_exists('gitup_get_plugin_repo_url')) {
+  function gitup_get_plugin_repo_url($plugin_info) {
+    if (!is_array($plugin_info) || empty($plugin_info['UpdateURI'])) {
+      return '';
+    }
+
+    return gitup_normalize_github_repo_url($plugin_info['UpdateURI']);
+  }
+}
+
+if (!function_exists('gitup_compare_version_tags')) {
+  function gitup_compare_version_tags($left, $right) {
+    return version_compare(
+      gitup_normalize_version_tag((string) $left),
+      gitup_normalize_version_tag((string) $right)
+    );
+  }
+}
+
+if (!function_exists('gitup_find_theme_root_directory')) {
+  function gitup_find_theme_root_directory($source, $expected_stylesheet = '') {
+    $expected_stylesheet = trim((string) $expected_stylesheet, '/');
+    $candidates = [];
+    $seen = [];
+
+    $add_candidate = function ($dir) use (&$candidates, &$seen) {
+      $dir = untrailingslashit((string) $dir);
+      if ($dir === '' || isset($seen[$dir])) {
+        return;
+      }
+
+      $style = trailingslashit($dir) . 'style.css';
+      if (!file_exists($style)) {
+        return;
+      }
+
+      $contents = @file_get_contents($style, false, null, 0, 8192);
+      if ($contents === false || !preg_match('/^\s*Theme\s*Name\s*:\s*(.+)$/mi', $contents)) {
+        return;
+      }
+
+      $seen[$dir] = true;
+      $candidates[] = $dir;
+    };
+
+    $add_candidate($source);
+
+    $dirs_lvl1 = glob(trailingslashit($source) . '*', GLOB_ONLYDIR) ?: [];
+    foreach ($dirs_lvl1 as $d1) {
+      $add_candidate($d1);
+    }
+
+    foreach ($dirs_lvl1 as $d1) {
+      $dirs_lvl2 = glob(trailingslashit($d1) . '*', GLOB_ONLYDIR) ?: [];
+      foreach ($dirs_lvl2 as $d2) {
+        $add_candidate($d2);
+      }
+    }
+
+    if ($expected_stylesheet !== '') {
+      foreach ($candidates as $candidate) {
+        if (basename($candidate) === $expected_stylesheet) {
+          gitup_log('theme root candidate matched expected stylesheet: ' . $candidate);
+          return trailingslashit($candidate);
+        }
+      }
+    }
+
+    if (count($candidates) === 1) {
+      gitup_log('theme root single candidate selected: ' . $candidates[0]);
+      return trailingslashit($candidates[0]);
+    }
+
+    if (count($candidates) > 1) {
+      gitup_log('theme root multiple candidates found: ' . json_encode($candidates));
+    }
+
+    return !empty($candidates) ? trailingslashit($candidates[0]) : '';
+  }
+}
+
+if (!function_exists('gitup_get_latest_github_release_tag')) {
+  function gitup_get_latest_github_release_tag($repo_url, $force_refresh = false) {
+    $include_prereleases = gitup_include_prereleases_enabled();
+    $cache_key = 'github_release_' . md5($repo_url . '|' . ($include_prereleases ? 'pre' : 'stable'));
+
+    if ($force_refresh) {
+      delete_transient($cache_key);
+    }
+
+    $cached_release = get_transient($cache_key);
+    if (!$force_refresh && $cached_release && $cached_release !== 'N/A') {
+      return $cached_release;
+    }
+
+    $releases = gitup_get_github_releases_data($repo_url, $include_prereleases, 1);
+    $latest = !empty($releases[0]['tag_name']) ? $releases[0]['tag_name'] : 'N/A';
+
+    if ($latest !== 'N/A') {
+      set_transient($cache_key, $latest, HOUR_IN_SECONDS);
+    } else {
+      set_transient($cache_key, 'N/A', 5 * MINUTE_IN_SECONDS);
+    }
+
+    return $latest;
+  }
+}
+
 if (!function_exists('gitup_get_github_releases_data')) {
   function gitup_get_github_releases_data($repo_url, $include_prereleases = false, $limit = 10) {
     $repo_path = parse_url($repo_url, PHP_URL_PATH);
@@ -259,14 +436,10 @@ if (!class_exists('GitUpUpdater')) {
 
       $plugins = get_plugins();
       foreach ($plugins as $plugin_path => $plugin_info) {
-        if (empty($plugin_info['UpdateURI'])) {
+        $repo_url = gitup_get_plugin_repo_url($plugin_info);
+        if ($repo_url === '') {
           gitup_log('plugin check: skipped (no UpdateURI) ' . $plugin_path);
           continue; // Only plugins with UpdateURI
-        }
-        $repo_url = $plugin_info['UpdateURI'];
-        if (strpos($repo_url, 'github.com') === false) {
-          gitup_log('plugin check: skipped (non-GitHub UpdateURI) ' . $plugin_path . ' uri=' . $repo_url);
-          continue;
         }
         $latest_release = $this->get_latest_github_release($repo_url);
         if ($latest_release === 'N/A') {
@@ -280,9 +453,11 @@ if (!class_exists('GitUpUpdater')) {
         gitup_log('plugin check: ' . $plugin_path . ' current=' . $current_ver . ' latest=' . $latest_release . ' (cmp ' . $current_norm . ' vs ' . $latest_norm . ')');
         if (version_compare($current_norm, $latest_norm, '<')) {
           $plugin_slug = dirname($plugin_path);
-          $repo_path   = parse_url($repo_url, PHP_URL_PATH);
-          // Använd codeload för binär zip utan Accept-förhandling
-          $zip_url     = "https://codeload.github.com{$repo_path}/zip/refs/tags/{$latest_release}";
+          $zip_url     = gitup_build_github_package_url($repo_url, $latest_release);
+          if ($zip_url === '') {
+            gitup_log('plugin check: could not build package url for ' . $plugin_path);
+            continue;
+          }
           gitup_log('Update available for ' . $plugin_path . ' -> tag ' . $latest_release . ' package ' . $zip_url);
           $transient->response[$plugin_path] = (object) [
             'slug'        => $plugin_slug,
@@ -320,15 +495,20 @@ if (!class_exists('GitUpUpdater')) {
         if (empty($plugin_info['UpdateURI'])) {
           continue;
         }
-        $repo_url = $plugin_info['UpdateURI'];
-        $repo_path = parse_url($repo_url, PHP_URL_PATH);
+        $repo_url = gitup_get_plugin_repo_url($plugin_info);
+        if ($repo_url === '') {
+          return $res;
+        }
         $releases = $this->get_github_releases($repo_url, 10);
         if (empty($releases) || !empty($releases[0]['error']) || empty($releases[0]['tag_name'])) {
           return $res;
         }
         $latest = $releases[0];
         $tag = $latest['tag_name'];
-        $zip_url = "https://codeload.github.com{$repo_path}/zip/refs/tags/{$tag}";
+        $zip_url = gitup_build_github_package_url($repo_url, $tag);
+        if ($zip_url === '') {
+          return $res;
+        }
         gitup_log('Plugin info for ' . $args->slug . ' -> tag ' . $tag . ' package ' . $zip_url);
 
         $info                = new stdClass();
@@ -374,7 +554,7 @@ if (!class_exists('GitUpUpdater')) {
      * @return array
      */
     private function get_github_releases($repo_url, $limit = 10) {
-      $include_prereleases = get_option('gitup_include_prereleases', '0') === '1';
+      $include_prereleases = gitup_include_prereleases_enabled();
       return gitup_get_github_releases_data($repo_url, $include_prereleases, $limit);
     }
 
@@ -402,16 +582,8 @@ if (!class_exists('GitUpUpdater')) {
       }
       $themes = wp_get_themes();
       foreach ($themes as $stylesheet => $theme) {
-        // Använd i första hand UpdateURI (stilheader), annars ThemeURI
-        $repo_url = $theme->get('UpdateURI');
-        if (empty($repo_url)) {
-          $repo_url = $theme->get('ThemeURI');
-        }
-        // Normalize repo_url: if not empty and does not contain 'github.com', prepend https://github.com/
-        if (!empty($repo_url) && strpos($repo_url, 'github.com') === false) {
-          $repo_url = 'https://github.com/' . ltrim($repo_url, '/');
-        }
-        if (empty($repo_url) || strpos($repo_url, 'github.com') === false) {
+        $repo_url = gitup_get_theme_repo_url($theme);
+        if ($repo_url === '') {
           continue;
         }
         $releases = $this->get_github_releases($repo_url, 10);
@@ -424,8 +596,10 @@ if (!class_exists('GitUpUpdater')) {
         $current_norm = $this->normalize_version_tag($current_ver);
         gitup_log('check_for_theme_update: theme=' . $stylesheet . ' current=' . $current_ver . ' latest=' . $latest_release . ' (cmp ' . $current_norm . ' vs ' . $latest_norm . ')');
         if (version_compare($current_norm, $latest_norm, '<')) {
-          $repo_path = parse_url($repo_url, PHP_URL_PATH);
-          $zip_url = "https://codeload.github.com{$repo_path}/zip/refs/tags/{$latest_release}";
+          $zip_url = gitup_build_github_package_url($repo_url, $latest_release);
+          if ($zip_url === '') {
+            continue;
+          }
           gitup_log('Theme update available for ' . $stylesheet . ' -> tag ' . $latest_release . ' package ' . $zip_url);
           $transient->response[$stylesheet] = [
             'theme'       => $stylesheet,
@@ -461,15 +635,8 @@ if (!class_exists('GitUpUpdater')) {
         if ($stylesheet !== $args->slug) {
           continue;
         }
-        $repo_url = $theme->get('UpdateURI');
-        if (empty($repo_url)) {
-          $repo_url = $theme->get('ThemeURI');
-        }
-        // Normalize repo_url: if not empty and does not contain 'github.com', prepend https://github.com/
-        if (!empty($repo_url) && strpos($repo_url, 'github.com') === false) {
-          $repo_url = 'https://github.com/' . ltrim($repo_url, '/');
-        }
-        if (empty($repo_url) || strpos($repo_url, 'github.com') === false) {
+        $repo_url = gitup_get_theme_repo_url($theme);
+        if ($repo_url === '') {
           gitup_log('theme_info: no GitHub URI for slug=' . $args->slug);
           return $res;
         }
@@ -479,9 +646,12 @@ if (!class_exists('GitUpUpdater')) {
           return $res;
         }
         $latest = $releases[0];
-        $repo_path = parse_url($repo_url, PHP_URL_PATH);
         $tag = $latest['tag_name'];
-        $zip_url = "https://codeload.github.com{$repo_path}/zip/refs/tags/{$tag}";
+        $zip_url = gitup_build_github_package_url($repo_url, $tag);
+        if ($zip_url === '') {
+          gitup_log('theme_info: could not build package url');
+          return $res;
+        }
         gitup_log('Theme info for ' . $args->slug . ' -> tag ' . $tag . ' package ' . $zip_url);
         $changelog = '';
         foreach ($releases as $rel) {
@@ -710,40 +880,29 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
 
   // === THEME handling: pick directory that contains a valid style.css (Theme Name header) ===
   if (!empty($hook_extra['theme'])) {
-    $is_theme_dir = function ($dir) {
-      $style = trailingslashit($dir) . 'style.css';
-      if (!file_exists($style)) return false;
-      $contents = @file_get_contents($style, false, null, 0, 8192);
-      if ($contents === false) return false;
-      return (bool)preg_match('/^\s*Theme\s*Name\s*:\s*(.+)$/mi', $contents);
-    };
+    gitup_log('theme source_selection: expected stylesheet=' . $hook_extra['theme']);
+    $theme_root = gitup_find_theme_root_directory($source, $hook_extra['theme']);
+    if ($theme_root !== '') {
+      $expected_stylesheet = trim((string) $hook_extra['theme'], '/');
+      $selected_theme_root = untrailingslashit($theme_root);
 
-    // 1) Already a theme root?
-    if ($is_theme_dir($source)) {
-      gitup_log('theme: style.css found at top-level; returning source');
-      return $source;
-    }
-
-    // 2) Search one level deep
-    $dirs_lvl1 = glob(trailingslashit($source) . '*', GLOB_ONLYDIR) ?: [];
-    foreach ($dirs_lvl1 as $d1) {
-      if ($is_theme_dir($d1)) {
-        gitup_log('theme: style.css found one level deep in ' . $d1);
-        return $d1;
-      }
-    }
-
-    // 3) Search two levels deep (monorepo patterns like /themes/<slug>/)
-    foreach ($dirs_lvl1 as $d1) {
-      $dirs_lvl2 = glob(trailingslashit($d1) . '*', GLOB_ONLYDIR) ?: [];
-      foreach ($dirs_lvl2 as $d2) {
-        if ($is_theme_dir($d2)) {
-          gitup_log('theme: style.css found two levels deep in ' . $d2);
-          return $d2;
+      if ($expected_stylesheet !== '' && basename($selected_theme_root) !== $expected_stylesheet) {
+        $renamed_theme_root = trailingslashit(dirname($selected_theme_root)) . $expected_stylesheet;
+        if (@rename($selected_theme_root, $renamed_theme_root)) {
+          $theme_root = trailingslashit($renamed_theme_root);
+          gitup_log('theme: renamed selected root to expected stylesheet: ' . $theme_root);
+        } else {
+          gitup_log('theme: failed to rename selected root ' . $selected_theme_root . ' to ' . $renamed_theme_root);
         }
       }
+
+      gitup_log('theme: selected theme root ' . $theme_root . ' for stylesheet ' . $hook_extra['theme']);
+      gitup_log('theme: selected root contents=' . json_encode(glob(trailingslashit($theme_root) . '*')));
+      return $theme_root;
     }
-    // If not found, fall through to plugin logic/fallbacks below (WP will error if no valid theme)
+    gitup_log('theme: no valid theme root found under source ' . $source);
+    gitup_log('theme: source contents=' . json_encode(glob(trailingslashit($source) . '*')));
+    return $source;
   }
 
   $expected_dir = null;
@@ -830,6 +989,24 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
  * upgrader_install_package_result — ren loggning av resultatet
  */
 add_filter('upgrader_install_package_result', function ($result, $hook_extra) {
+  if (!is_wp_error($result) && is_array($result) && !empty($hook_extra['theme'])) {
+    $expected_stylesheet = (string) $hook_extra['theme'];
+    $current_destination_name = isset($result['destination_name']) ? (string) $result['destination_name'] : '';
+
+    if ($current_destination_name === '') {
+      $result['destination_name'] = $expected_stylesheet;
+      gitup_log('install_package_result(theme): filled empty destination_name with stylesheet=' . $expected_stylesheet);
+    } elseif ($current_destination_name !== $expected_stylesheet) {
+      gitup_log(
+        'install_package_result(theme): overriding destination_name from ' .
+        $current_destination_name .
+        ' to stylesheet=' .
+        $expected_stylesheet
+      );
+      $result['destination_name'] = $expected_stylesheet;
+    }
+  }
+
   if (is_wp_error($result)) {
     gitup_log('install_package_result: ERROR code=' . $result->get_error_code() . ' message=' . $result->get_error_message() . ' data=' . json_encode($result->get_error_data()));
   } else {
@@ -882,12 +1059,13 @@ add_filter('upgrader_package_options', function ($options) {
   if (empty($hook_extra['plugin']) && !empty($hook_extra['theme'])) {
     $theme_stylesheet = $hook_extra['theme']; // e.g. vc-theme-2023
     if (!empty($options['destination'])) {
-      // Point to the exact theme dir
-      $themes_dir = trailingslashit(get_theme_root());
-      $options['destination'] = trailingslashit($themes_dir . $theme_stylesheet);
-      $options['destination_name'] = $theme_stylesheet;
+      // Keep destination at themes root; source_selection renames the extracted
+      // theme directory to the active stylesheet so core computes destination_name correctly.
+      $options['destination'] = get_theme_root();
+      unset($options['destination_name']);
       $options['clear_destination'] = true; // overwrite existing files during update
       $options['abort_if_destination_exists'] = false; // allow existing theme dir
+      gitup_log('package_options(theme): stylesheet=' . $theme_stylesheet . ' destination=' . $options['destination']);
     }
   }
 

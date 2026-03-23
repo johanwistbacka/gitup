@@ -8,7 +8,8 @@
 
 // Add "View details of version ..." link on plugins.php
 add_filter('plugin_row_meta', function($links, $file, $plugin_data) {
-  if (!empty($plugin_data['UpdateURI']) && strpos($plugin_data['UpdateURI'], 'github.com') !== false) {
+  $repo_url = function_exists('gitup_get_plugin_repo_url') ? gitup_get_plugin_repo_url($plugin_data) : '';
+  if ($repo_url !== '') {
     $slug = dirname($file);
     $update_data = get_site_transient('update_plugins');
     if (empty($update_data->response[$file])) {
@@ -28,8 +29,8 @@ add_filter('plugin_row_meta', function($links, $file, $plugin_data) {
 
 // Add "View details of version ..." link on themes.php for GitHub themes
 add_filter('theme_row_meta', function($links, $theme_slug, $theme) {
-  $update_uri = $theme->get('UpdateURI');
-  if (!empty($update_uri) && strpos($update_uri, 'github.com') !== false) {
+  $repo_url = function_exists('gitup_get_theme_repo_url') ? gitup_get_theme_repo_url($theme) : '';
+  if ($repo_url !== '') {
     // Check if update is available
     $update_data = get_site_transient('update_themes');
     $stylesheet = $theme->get_stylesheet();

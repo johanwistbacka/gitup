@@ -49,6 +49,52 @@ if (!function_exists('gitup_fetch_releases')) {
   }
 }
 
+if (!function_exists('gitup_get_releases_error_code')) {
+  function gitup_get_releases_error_code($releases) {
+    return (!empty($releases) && !empty($releases[0]['error'])) ? $releases[0]['error'] : '';
+  }
+}
+
+if (!function_exists('gitup_get_release_empty_state_message')) {
+  function gitup_get_release_empty_state_message($repo_url, $releases) {
+    $error_code = gitup_get_releases_error_code($releases);
+    if ($error_code === 'rate_limit') {
+      return __('GitHub API rate limit exceeded. Add a token.', 'gitup');
+    }
+
+    $visibility = gitup_repo_visibility($repo_url);
+    $token_state = gitup_get_token_state();
+    if ($visibility === 'private') {
+      if (in_array($token_state, ['missing', 'invalid', 'expired'], true)) {
+        return __('Private repo / 404. Update token.', 'gitup');
+      }
+      if ($token_state === 'unknown') {
+        return __('Private repo. Verify token.', 'gitup');
+      }
+    }
+
+    return __('No releases found', 'gitup');
+  }
+}
+
+if (!function_exists('gitup_get_settings_page_url')) {
+  function gitup_get_settings_page_url($args = []) {
+    $defaults = ['page' => 'gitup-settings'];
+    return add_query_arg(array_merge($defaults, $args), admin_url('tools.php'));
+  }
+}
+
+if (!function_exists('gitup_redirect_with_notice')) {
+  function gitup_redirect_with_notice($message, $ok = '0', $args = []) {
+    $query_args = array_merge($args, [
+      'gitup_msg' => (string) $message,
+      'ok'        => (string) $ok,
+    ]);
+    wp_safe_redirect(gitup_get_settings_page_url($query_args));
+    exit;
+  }
+}
+
 if (!function_exists('gitup_clear_github_cache')) {
   function gitup_clear_github_cache() {
     global $wpdb;
@@ -246,16 +292,8 @@ if (!function_exists("get_github_plugins")) {
     $github_plugins = [];
 
     foreach ($all_plugins as $plugin_path => $plugin_info) {
-      // Hoppa över plugins som inte uttryckligen anger UpdateURI
-      if (!isset($plugin_info["UpdateURI"])) {
-        continue;
-      }
-
-      $update_uri = $plugin_info["UpdateURI"];
-      // Trim trailing slashes for normalization
-      $update_uri = rtrim($update_uri, '/');
-
-      if (strpos($update_uri, "github.com") !== false) {
+      $update_uri = function_exists('gitup_get_plugin_repo_url') ? gitup_get_plugin_repo_url($plugin_info) : '';
+      if ($update_uri !== '') {
         $github_plugins[] = [
           'name' => $plugin_info['Name'],
           'version' => $plugin_info['Version'],
@@ -285,15 +323,8 @@ if (!function_exists('get_github_themes')) {
     $themes = wp_get_themes();
     $github_themes = [];
     foreach ($themes as $stylesheet => $theme) {
-      // Endast teman som har UpdateURI mot GitHub behandlas här
-      $update_uri = $theme->get('UpdateURI');
-      // Normalisera till full GitHub-URL om bara owner/repo anges
-      if ($update_uri && strpos($update_uri, 'github.com') === false) {
-          $update_uri = 'https://github.com/' . ltrim($update_uri, '/');
-      }
-      // Trim trailing slashes for normalization
-      $update_uri = rtrim($update_uri, '/');
-      if (!$update_uri || strpos($update_uri, 'github.com') === false) {
+      $update_uri = function_exists('gitup_get_theme_repo_url') ? gitup_get_theme_repo_url($theme) : '';
+      if (!$update_uri) {
         continue;
       }
       // Debug-loggning av theme-namn och update_uri
@@ -382,14 +413,15 @@ if (!function_exists("gitup_settings_page")) {
                       $repo_path  = parse_url($plugin["github"], PHP_URL_PATH);
                       if ($repo_path) { $repo_label = ltrim($repo_path, '/'); }
                       // Beräkna $row_class baserat på $selected_tag och jämförelse mot $plugin['version']
-                      $include_pre = get_option('gitup_include_prereleases', '0') === '1';
+                      $include_pre = function_exists('gitup_include_prereleases_enabled') ? gitup_include_prereleases_enabled() : (get_option('gitup_include_prereleases', '0') === '1');
                       $releases = gitup_fetch_releases($plugin['github'], $include_pre, 20);
                       $row_class = '';
                       if (!empty($releases)) {
                         $selected_tag = $releases[0]['tag'];
-                        if (version_compare(gitup_normalize_version_tag($selected_tag), gitup_normalize_version_tag($plugin['version']), '>')) {
+                        $cmp = function_exists('gitup_compare_version_tags') ? gitup_compare_version_tags($selected_tag, $plugin['version']) : version_compare(gitup_normalize_version_tag($selected_tag), gitup_normalize_version_tag($plugin['version']));
+                        if ($cmp > 0) {
                           $row_class = 'update';
-                        } elseif (version_compare(gitup_normalize_version_tag($selected_tag), gitup_normalize_version_tag($plugin['version']), '<')) {
+                        } elseif ($cmp < 0) {
                           $row_class = 'downgrade';
                         } else {
                           $row_class = 'reinstall';
@@ -397,7 +429,7 @@ if (!function_exists("gitup_settings_page")) {
                       }
                       if ($odd === 'odd') { $odd = 'even'; } else { $odd = 'odd'; }
                     ?>
-                    <?php if (!empty($releases) && version_compare(gitup_normalize_version_tag($releases[0]['tag']), gitup_normalize_version_tag($plugin['version']), '>')): ?>
+                    <?php if (!empty($releases) && (function_exists('gitup_compare_version_tags') ? gitup_compare_version_tags($releases[0]['tag'], $plugin['version']) : version_compare(gitup_normalize_version_tag($releases[0]['tag']), gitup_normalize_version_tag($plugin['version']))) > 0): ?>
                       <tr class="has-update row <?php echo $odd . ' ' . esc_attr($row_class); ?>" data-currentVersion="<?php echo esc_html($plugin["version"]); ?>">
                     <?php else: ?>
                       <tr class="row <?php echo $odd . ' ' . esc_attr($row_class); ?>" data-currentVersion="<?php echo esc_html($plugin["version"]); ?>">
@@ -427,26 +459,12 @@ if (!function_exists("gitup_settings_page")) {
                             //        - Else → show "No releases found".
                             //    - Else (public) → show "No releases found".
                             // 2. If $releases is not empty: always render form.
-                          $token = get_option('gitup_github_token', '');
                           $visibility = gitup_repo_visibility($plugin['github']);
-                          // Handle rate limit specifically: if $releases is non-empty and first is error:rate_limit, show warning and do not render form.
-                          if (
-                            (!empty($releases) && !empty($releases[0]['error']) && $releases[0]['error'] === 'rate_limit')
-                          ) {
-                            echo '<span style="opacity:.7;color:#d63638">' . esc_html__('GitHub API rate limit exceeded. Add a token.', 'gitup') . '</span>';
-                          } elseif (empty($releases)) {
-                            if ($visibility === 'private') {
-                              $token_state = gitup_get_token_state();
-                              if (empty($token) || in_array($token_state, ['invalid', 'expired'], true)) {
-                                echo '<span style="opacity:.7">' . esc_html__('Private repo / 404. Update token.', 'gitup') . '</span>';
-                              } elseif ($token_state === 'unknown') {
-                                echo '<span style="opacity:.7">' . esc_html__('Private repo. Verify token.', 'gitup') . '</span>';
-                              } else {
-                                echo '<span style="opacity:.7">' . esc_html__('No releases found', 'gitup') . '</span>';
-                              }
-                            } else {
-                              echo '<span style="opacity:.7">' . esc_html__('No releases found', 'gitup') . '</span>';
-                            }
+                          $release_error = gitup_get_releases_error_code($releases);
+                          if ($release_error === 'rate_limit' || empty($releases)) {
+                            $message = gitup_get_release_empty_state_message($plugin['github'], $releases);
+                            $style = ($release_error === 'rate_limit') ? 'opacity:.7;color:#d63638' : 'opacity:.7';
+                            echo '<span style="' . esc_attr($style) . '">' . esc_html($message) . '</span>';
                           } else {
                               $action = admin_url('admin-post.php');
                               $plugin_file = $plugin['file'];
@@ -455,20 +473,19 @@ if (!function_exists("gitup_settings_page")) {
                               echo '<form method="post" action="' . esc_url($action) . '">';
                               echo '<input type="hidden" name="action" value="gitup_install_release">';
                               echo '<input type="hidden" name="plugin" value="' . esc_attr($plugin_file) . '">';
-                              echo '<input type="hidden" name="repo" value="' . esc_attr($plugin['github']) . '">';
                               echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
                               echo '<select class="gitup-version-select" name="tag">';
                               foreach ($releases as $rel) {
                                 $is_latest = ($rel['tag'] === $plugin['latest_release']);
                                 $prefix = '';
                                 // Markera senaste release om installerad version är äldre
-                                if ($is_latest && version_compare(gitup_normalize_version_tag($plugin['version']), gitup_normalize_version_tag($plugin['latest_release']), '<')) {
+                                if ($is_latest && (function_exists('gitup_compare_version_tags') ? gitup_compare_version_tags($plugin['version'], $plugin['latest_release']) : version_compare(gitup_normalize_version_tag($plugin['version']), gitup_normalize_version_tag($plugin['latest_release']))) < 0) {
                                   $prefix .= '⭐ ';
                                 }
                                 // Markera den release som är samma som installerad version
                                 if ($rel['tag'] === $plugin['version']) $prefix .= '✓ ';
                                 // Markera om release är äldre än installerad version
-                                if (version_compare(gitup_normalize_version_tag($rel['tag']), gitup_normalize_version_tag($plugin['version']), '<')) {
+                                if ((function_exists('gitup_compare_version_tags') ? gitup_compare_version_tags($rel['tag'], $plugin['version']) : version_compare(gitup_normalize_version_tag($rel['tag']), gitup_normalize_version_tag($plugin['version']))) < 0) {
                                   $prefix .= '⬇ ';
                                 }
                                 $label = $prefix . $rel['tag'] . ($rel['prerelease'] ? ' (pre)' : '');
@@ -477,10 +494,11 @@ if (!function_exists("gitup_settings_page")) {
                               echo '</select>';
                               // Dynamically determine label based on selected (default) release and installed version
                               $selected_tag = $releases[0]['tag'];
+                              $selected_cmp = function_exists('gitup_compare_version_tags') ? gitup_compare_version_tags($selected_tag, $plugin['version']) : version_compare(gitup_normalize_version_tag($selected_tag), gitup_normalize_version_tag($plugin['version']));
                               $label = __('Install', 'gitup');
-                              if (version_compare(gitup_normalize_version_tag($selected_tag), gitup_normalize_version_tag($plugin['version']), '>')) {
+                              if ($selected_cmp > 0) {
                                 $label = __('Update', 'gitup');
-                              } elseif (version_compare(gitup_normalize_version_tag($selected_tag), gitup_normalize_version_tag($plugin['version']), '<')) {
+                              } elseif ($selected_cmp < 0) {
                                 $label = __('Downgrade', 'gitup');
                               } else {
                                 $label = __('Re-install', 'gitup');
@@ -564,21 +582,22 @@ if (!function_exists("gitup_settings_page")) {
                         $repo_path  = parse_url($theme["github"], PHP_URL_PATH);
                         if ($repo_path) { $repo_label = ltrim($repo_path, '/'); }
                         // Beräkna $row_class baserat på $selected_tag och jämförelse mot $theme['version']
-                        $include_pre = get_option('gitup_include_prereleases', '0') === '1';
+                        $include_pre = function_exists('gitup_include_prereleases_enabled') ? gitup_include_prereleases_enabled() : (get_option('gitup_include_prereleases', '0') === '1');
                         $releases = gitup_fetch_releases($theme['github'], $include_pre, 20);
                         $row_class = '';
                         if (!empty($releases)) {
                           $selected_tag = $releases[0]['tag'];
-                          if (version_compare(gitup_normalize_version_tag($selected_tag), gitup_normalize_version_tag($theme['version']), '>')) {
+                          $cmp = function_exists('gitup_compare_version_tags') ? gitup_compare_version_tags($selected_tag, $theme['version']) : version_compare(gitup_normalize_version_tag($selected_tag), gitup_normalize_version_tag($theme['version']));
+                          if ($cmp > 0) {
                             $row_class = 'update';
-                          } elseif (version_compare(gitup_normalize_version_tag($selected_tag), gitup_normalize_version_tag($theme['version']), '<')) {
+                          } elseif ($cmp < 0) {
                             $row_class = 'downgrade';
                           } else {
                             $row_class = 'reinstall';
                           }
                         }
                         ?>
-                        <?php if (!empty($releases) && version_compare(gitup_normalize_version_tag($releases[0]['tag']), gitup_normalize_version_tag($theme['version']), '>')): ?>
+                        <?php if (!empty($releases) && (function_exists('gitup_compare_version_tags') ? gitup_compare_version_tags($releases[0]['tag'], $theme['version']) : version_compare(gitup_normalize_version_tag($releases[0]['tag']), gitup_normalize_version_tag($theme['version']))) > 0): ?>
                           <tr class="has-update <?php echo $odd . ' ' . esc_attr($row_class); ?>" data-currentVersion="<?php echo esc_html($theme["version"]); ?>">
                         <?php else: ?>
                           <tr class="row <?php echo $odd . ' ' . esc_attr($row_class); ?>" data-currentVersion="<?php echo esc_html($theme["version"]); ?>">
@@ -607,26 +626,12 @@ if (!function_exists("gitup_settings_page")) {
                                 //        - Else → show "No releases found".
                                 //    - Else (public) → show "No releases found".
                                 // 2. If $releases is not empty: always render form.
-                                $token = get_option('gitup_github_token', '');
                                 $visibility = gitup_repo_visibility($theme['github']);
-                                // Handle rate limit specifically: if $releases is non-empty and first is error:rate_limit, show warning and do not render form.
-                                if (
-                                  (!empty($releases) && !empty($releases[0]['error']) && $releases[0]['error'] === 'rate_limit')
-                                ) {
-                                  echo '<span style="opacity:.7;color:#d63638">' . esc_html__('GitHub API rate limit exceeded. Add a token.', 'gitup') . '</span>';
-                                } elseif (empty($releases)) {
-                                  if ($visibility === 'private') {
-                                    $token_state = gitup_get_token_state();
-                                    if (empty($token) || in_array($token_state, ['invalid', 'expired'], true)) {
-                                      echo '<span style="opacity:.7">' . esc_html__('Private repo / 404. Update token.', 'gitup') . '</span>';
-                                    } elseif ($token_state === 'unknown') {
-                                      echo '<span style="opacity:.7">' . esc_html__('Private repo. Verify token.', 'gitup') . '</span>';
-                                    } else {
-                                      echo '<span style="opacity:.7">' . esc_html__('No releases found', 'gitup') . '</span>';
-                                    }
-                                  } else {
-                                    echo '<span style="opacity:.7">' . esc_html__('No releases found', 'gitup') . '</span>';
-                                  }
+                                $release_error = gitup_get_releases_error_code($releases);
+                                if ($release_error === 'rate_limit' || empty($releases)) {
+                                  $message = gitup_get_release_empty_state_message($theme['github'], $releases);
+                                  $style = ($release_error === 'rate_limit') ? 'opacity:.7;color:#d63638' : 'opacity:.7';
+                                  echo '<span style="' . esc_attr($style) . '">' . esc_html($message) . '</span>';
                                 } else {
                                   $action = admin_url('admin-post.php');
                                   $theme_stylesheet = $theme['stylesheet'];
@@ -635,17 +640,16 @@ if (!function_exists("gitup_settings_page")) {
                                   echo '<form method="post" action="' . esc_url($action) . '">';
                                   echo '<input type="hidden" name="action" value="gitup_themes_install_release">';
                                   echo '<input type="hidden" name="theme" value="' . esc_attr($theme_stylesheet) . '">';
-                                  echo '<input type="hidden" name="repo" value="' . esc_attr($theme['github']) . '">';
                                   echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
                                   echo '<select class="gitup-version-select" name="tag">';
                                   foreach ($releases as $rel) {
                                     $is_latest = ($rel['tag'] === $theme['latest_release']);
                                     $prefix = '';
-                                    if ($is_latest && version_compare(gitup_normalize_version_tag($theme['version']), gitup_normalize_version_tag($theme['latest_release']), '<')) {
+                                    if ($is_latest && (function_exists('gitup_compare_version_tags') ? gitup_compare_version_tags($theme['version'], $theme['latest_release']) : version_compare(gitup_normalize_version_tag($theme['version']), gitup_normalize_version_tag($theme['latest_release']))) < 0) {
                                       $prefix .= '⭐ ';
                                     }
                                     if ($rel['tag'] === $theme['version']) $prefix .= '✓ ';
-                                    if (version_compare(gitup_normalize_version_tag($rel['tag']), gitup_normalize_version_tag($theme['version']), '<')) {
+                                    if ((function_exists('gitup_compare_version_tags') ? gitup_compare_version_tags($rel['tag'], $theme['version']) : version_compare(gitup_normalize_version_tag($rel['tag']), gitup_normalize_version_tag($theme['version']))) < 0) {
                                       $prefix .= '⬇ ';
                                     }
                                     $label = $prefix . $rel['tag'] . ($rel['prerelease'] ? ' (pre)' : '');
@@ -655,10 +659,11 @@ if (!function_exists("gitup_settings_page")) {
                                   echo '<br>';
                                   // Dynamically determine label based on selected (default) release and installed version
                                   $selected_tag = $releases[0]['tag'];
+                                  $selected_cmp = function_exists('gitup_compare_version_tags') ? gitup_compare_version_tags($selected_tag, $theme['version']) : version_compare(gitup_normalize_version_tag($selected_tag), gitup_normalize_version_tag($theme['version']));
                                   $label = __('Install', 'gitup');
-                                  if (version_compare(gitup_normalize_version_tag($selected_tag), gitup_normalize_version_tag($theme['version']), '>')) {
+                                  if ($selected_cmp > 0) {
                                     $label = __('Update', 'gitup');
-                                  } elseif (version_compare(gitup_normalize_version_tag($selected_tag), gitup_normalize_version_tag($theme['version']), '<')) {
+                                  } elseif ($selected_cmp < 0) {
                                     $label = __('Downgrade', 'gitup');
                                   } else {
                                     $label = __('Re-install', 'gitup');
@@ -807,6 +812,12 @@ if (!function_exists("gitup_settings_page")) {
 
 // Visa notice om cache rensats
 add_action('admin_notices', function () {
+  if (!current_user_can('manage_options')) {
+    return;
+  }
+  if (empty($_GET['page']) || sanitize_key(wp_unslash($_GET['page'])) !== 'gitup-settings') {
+    return;
+  }
   if (isset($_GET['gitup_cache_cleared']) && $_GET['gitup_cache_cleared'] == '1') {
     echo '<div class="updated notice is-dismissible"><p>' . esc_html__('GitHub cache cleared.', 'gitup') . '</p></div>';
   }
@@ -828,26 +839,16 @@ add_action('admin_notices', function () {
 
 function get_latest_github_release($repo_url, $is_private = false, $force_refresh = false)
 {
-  $include_prereleases = get_option('gitup_include_prereleases', '0') === '1';
-  $cache_key = 'github_release_' . md5($repo_url . '|' . ($include_prereleases ? 'pre' : 'stable'));
-  if ($force_refresh) {
-    delete_transient($cache_key);
-  }
-  $cached_release = get_transient($cache_key);
-  if (!$force_refresh && $cached_release && $cached_release !== 'N/A') {
-    return $cached_release;
+  if (function_exists('gitup_get_latest_github_release_tag')) {
+    return gitup_get_latest_github_release_tag($repo_url, $force_refresh);
   }
 
-  // Use gitup_fetch_releases to get releases/tags
+  $include_prereleases = function_exists('gitup_include_prereleases_enabled')
+    ? gitup_include_prereleases_enabled()
+    : (get_option('gitup_include_prereleases', '0') === '1');
   $releases = gitup_fetch_releases($repo_url, $include_prereleases, 1);
-  $latest = !empty($releases[0]['tag']) ? $releases[0]['tag'] : 'N/A';
 
-  if ($latest !== 'N/A') {
-    set_transient($cache_key, $latest, HOUR_IN_SECONDS);
-  } else {
-    set_transient($cache_key, 'N/A', 5 * MINUTE_IN_SECONDS);
-  }
-  return $latest;
+  return !empty($releases[0]['tag']) ? $releases[0]['tag'] : 'N/A';
 }
 
 /**
@@ -998,7 +999,11 @@ add_action('admin_post_test_github_token', function () {
   }
 
   // Återvänd till sidan och visa resultat via settings_errors
-  wp_redirect(add_query_arg('settings-updated', 'true', wp_get_referer()));
+  $referer = wp_get_referer();
+  if (!$referer) {
+    $referer = gitup_get_settings_page_url(['tab' => 'settings']);
+  }
+  wp_safe_redirect(add_query_arg('settings-updated', 'true', $referer));
   exit;
 });
 
@@ -1060,26 +1065,49 @@ add_action('admin_post_gitup_install_release', function () {
     wp_die(__('You do not have permission to update plugins.', 'gitup'));
   }
   $plugin = isset($_POST['plugin']) ? sanitize_text_field(wp_unslash($_POST['plugin'])) : '';
-  $repo   = isset($_POST['repo']) ? esc_url_raw(wp_unslash($_POST['repo'])) : '';
   $tag    = isset($_POST['tag']) ? sanitize_text_field(wp_unslash($_POST['tag'])) : '';
   $nonce  = isset($_POST['_wpnonce']) ? sanitize_text_field(wp_unslash($_POST['_wpnonce'])) : '';
-  if (!$plugin || !$repo || !$tag || !wp_verify_nonce($nonce, 'gitup_install_release_' . $plugin)) {
-    wp_safe_redirect(add_query_arg(['page' => 'gitup-settings', 'gitup_msg' => urlencode(__('Invalid request.', 'gitup'))], admin_url('tools.php')));
-    exit;
+  if (!$plugin || !$tag || !wp_verify_nonce($nonce, 'gitup_install_release_' . $plugin)) {
+    gitup_redirect_with_notice(__('Invalid request.', 'gitup'));
   }
-  // Standardiserad codeload-URL för tagg; fungerar även för privata repos med auth via http_request_args
-  $repo_path = parse_url($repo, PHP_URL_PATH);
-  $package = 'https://codeload.github.com' . $repo_path . '/zip/refs/tags/' . rawurlencode($tag);
 
   require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
   require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+  $plugins = get_plugins();
+  if (empty($plugins[$plugin])) {
+    gitup_redirect_with_notice(__('Plugin not found.', 'gitup'));
+  }
+
+  $plugin_info = $plugins[$plugin];
+  $repo_url = function_exists('gitup_get_plugin_repo_url') ? gitup_get_plugin_repo_url($plugin_info) : '';
+  if ($repo_url === '') {
+    gitup_redirect_with_notice(__('No valid GitHub repository configured for this plugin.', 'gitup'));
+  }
+
+  $releases = gitup_fetch_releases($repo_url, get_option('gitup_include_prereleases', '0') === '1', 50);
+  $valid_tags = [];
+  foreach ($releases as $release) {
+    if (!empty($release['tag'])) {
+      $valid_tags[] = $release['tag'];
+    }
+  }
+
+  if (!in_array($tag, $valid_tags, true)) {
+    gitup_redirect_with_notice(__('Selected plugin release could not be verified.', 'gitup'));
+  }
+
+  $package = function_exists('gitup_build_github_package_url') ? gitup_build_github_package_url($repo_url, $tag) : '';
+  if ($package === '') {
+    gitup_redirect_with_notice(__('Could not build GitHub package URL for this plugin.', 'gitup'));
+  }
 
   // Använd WordPress inbyggda upgrader-API (visar status i UI)
   $skin = new Automatic_Upgrader_Skin();
   $upgrader = new Plugin_Upgrader($skin);
 
   // Peka WordPress mot rätt destinationsmapp (utan tag i namnet)
-  add_filter('upgrader_package_options', function ($options) use ($plugin) {
+  $package_options_filter = function ($options) use ($plugin) {
       // Skriv över destinationen så namnet blir identiskt med nuvarande mapp
       $options['hook_extra']['plugin'] = $plugin; // används av våra hooks
       if (defined('WP_PLUGIN_DIR')) {
@@ -1091,10 +1119,12 @@ add_action('admin_post_gitup_install_release', function () {
         $options['abort_if_destination_exists'] = false;
       }
       return $options;
-  });
+  };
+  add_filter('upgrader_package_options', $package_options_filter);
 
   $was_active = is_plugin_active($plugin);
   $result = $upgrader->install($package);
+  remove_filter('upgrader_package_options', $package_options_filter);
 
   // Försök reaktivera om det var aktivt innan
   if ($result && !is_wp_error($result) && $was_active && !is_plugin_active($plugin)) {
@@ -1109,8 +1139,7 @@ add_action('admin_post_gitup_install_release', function () {
     $ok  = '0';
   }
 
-  wp_safe_redirect(add_query_arg(['page' => 'gitup-settings', 'gitup_msg' => urlencode($msg), 'ok' => $ok], admin_url('tools.php')));
-  exit;
+  gitup_redirect_with_notice($msg, $ok);
 });
 
 // Admin-post handler: installera vald release-tag för ett tema
@@ -1118,38 +1147,136 @@ add_action('admin_post_gitup_themes_install_release', function () {
   if (!current_user_can('update_themes')) {
     wp_die(__('You do not have permission to update themes.', 'gitup'));
   }
-  $theme = isset($_POST['theme']) ? sanitize_text_field(wp_unslash($_POST['theme'])) : '';
-  $repo  = isset($_POST['repo']) ? esc_url_raw(wp_unslash($_POST['repo'])) : '';
+  $theme_stylesheet = isset($_POST['theme']) ? sanitize_text_field(wp_unslash($_POST['theme'])) : '';
   $tag   = isset($_POST['tag']) ? sanitize_text_field(wp_unslash($_POST['tag'])) : '';
   $nonce = isset($_POST['_wpnonce']) ? sanitize_text_field(wp_unslash($_POST['_wpnonce'])) : '';
-  if (!$theme || !$repo || !$tag || !wp_verify_nonce($nonce, 'gitup_themes_install_release_' . $theme)) {
-    wp_safe_redirect(add_query_arg(['page' => 'gitup-settings', 'gitup_msg' => urlencode(__('Invalid request (theme).', 'gitup'))], admin_url('tools.php')));
-    exit;
+  if (!$theme_stylesheet || !$tag || !wp_verify_nonce($nonce, 'gitup_themes_install_release_' . $theme_stylesheet)) {
+    gitup_redirect_with_notice(__('Invalid request (theme).', 'gitup'));
   }
-  // Codeload-URL för tema-tag (samma mönster som för plugin)
-  $repo_path = parse_url($repo, PHP_URL_PATH);
-  $package = 'https://codeload.github.com' . $repo_path . '/zip/refs/tags/' . rawurlencode($tag);
 
   require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
   require_once ABSPATH . 'wp-admin/includes/theme.php';
 
+  $themes = wp_get_themes();
+  if (empty($themes[$theme_stylesheet])) {
+    gitup_redirect_with_notice(__('Theme not found.', 'gitup'));
+  }
+
+  $theme = $themes[$theme_stylesheet];
+  $repo_url = function_exists('gitup_get_theme_repo_url') ? gitup_get_theme_repo_url($theme) : '';
+  if ($repo_url === '') {
+    gitup_redirect_with_notice(__('No valid GitHub repository configured for this theme.', 'gitup'));
+  }
+
+  $releases = gitup_fetch_releases($repo_url, get_option('gitup_include_prereleases', '0') === '1', 50);
+  $valid_tags = [];
+  foreach ($releases as $release) {
+    if (!empty($release['tag'])) {
+      $valid_tags[] = $release['tag'];
+    }
+  }
+
+  if (!in_array($tag, $valid_tags, true)) {
+    gitup_redirect_with_notice(__('Selected theme release could not be verified.', 'gitup'));
+  }
+
+  $package = function_exists('gitup_build_github_package_url') ? gitup_build_github_package_url($repo_url, $tag) : '';
+  if ($package === '') {
+    gitup_redirect_with_notice(__('Could not build GitHub package URL for this theme.', 'gitup'));
+  }
+
   // WordPress Theme_Upgrader – hanterar unzip och filkopiering
   $skin = new Automatic_Upgrader_Skin();
   $upgrader = new Theme_Upgrader($skin);
+  $active_stylesheet = get_stylesheet();
+  $active_template = get_template();
+  $touches_active_theme = ($active_stylesheet === $theme_stylesheet || $active_template === $theme_stylesheet);
+  if (function_exists('gitup_log')) {
+    gitup_log('manual theme install: stylesheet=' . $theme_stylesheet . ' active_stylesheet=' . $active_stylesheet . ' active_template=' . $active_template . ' touches_active=' . ($touches_active_theme ? 'yes' : 'no'));
+    gitup_log('manual theme install: repo=' . $repo_url . ' tag=' . $tag . ' package=' . $package);
+    gitup_log('manual theme install: valid_tags=' . json_encode($valid_tags));
+  }
 
   // Sätt destination till temats mapp (utan tag i katalognamnet)
-  add_filter('upgrader_package_options', function ($options) use ($theme) {
-    // Tvinga installation till temats stylesheet-katalog (utan tag i katalognamnet)
-    $options['hook_extra']['theme'] = $theme; // informativt
-    $themes_root = trailingslashit(get_theme_root());
-    $options['destination'] = trailingslashit($themes_root . $theme);
-    $options['destination_name'] = $theme;
+  $package_options_filter = function ($options) use ($theme_stylesheet) {
+    // Behall themes root som destination; source_selection byter namn pa den
+    // uppackade temamappen till stylesheet sa att core behandlar det som en riktig update.
+    $options['hook_extra']['theme'] = $theme_stylesheet;
+    $options['destination'] = get_theme_root();
+    unset($options['destination_name']);
     $options['clear_destination'] = true;
     $options['abort_if_destination_exists'] = false;
+    if (function_exists('gitup_log')) {
+      gitup_log('manual theme install package_options: ' . json_encode($options));
+    }
     return $options;
-  });
+  };
+  add_filter('upgrader_package_options', $package_options_filter);
+  add_filter('upgrader_pre_install', [$upgrader, 'current_before'], 10, 2);
+  add_filter('upgrader_post_install', [$upgrader, 'current_after'], 10, 2);
+  add_filter('upgrader_clear_destination', [$upgrader, 'delete_old_theme'], 10, 4);
+  add_filter('upgrader_source_selection', [$upgrader, 'check_package']);
 
-  $result = $upgrader->install($package);
+  $upgrader->init();
+  $upgrader->upgrade_strings();
+  $upgrader->run([
+    'package'           => $package,
+    'destination'       => get_theme_root($theme_stylesheet),
+    'clear_destination' => true,
+    'clear_working'     => true,
+    'hook_extra'        => [
+      'theme'       => $theme_stylesheet,
+      'type'        => 'theme',
+      'action'      => 'update',
+      'temp_backup' => [
+        'slug' => $theme_stylesheet,
+        'src'  => get_theme_root($theme_stylesheet),
+        'dir'  => 'themes',
+      ],
+    ],
+  ]);
+  $result = $upgrader->result;
+
+  remove_filter('upgrader_source_selection', [$upgrader, 'check_package']);
+  remove_filter('upgrader_clear_destination', [$upgrader, 'delete_old_theme'], 10);
+  remove_filter('upgrader_post_install', [$upgrader, 'current_after'], 10);
+  remove_filter('upgrader_pre_install', [$upgrader, 'current_before'], 10);
+  remove_filter('upgrader_package_options', $package_options_filter);
+  if (function_exists('gitup_log')) {
+    if (is_wp_error($result)) {
+      gitup_log('manual theme install result: ERROR code=' . $result->get_error_code() . ' message=' . $result->get_error_message());
+    } else {
+      gitup_log('manual theme install result: ' . json_encode($result));
+    }
+  }
+
+  if ($result && !is_wp_error($result)) {
+    wp_clean_themes_cache();
+    if (function_exists('gitup_log')) {
+      gitup_log('manual theme install: themes cache cleaned for stylesheet=' . $theme_stylesheet);
+    }
+
+    if ($touches_active_theme) {
+      $restored_theme = wp_get_theme($active_stylesheet);
+      $restored_parent = $active_template ? wp_get_theme($active_template) : null;
+      $active_theme_is_valid = $restored_theme->exists() && (!$restored_parent || !$active_template || $restored_parent->exists());
+      if (function_exists('gitup_log')) {
+        gitup_log('manual theme restore check: stylesheet_exists=' . ($restored_theme->exists() ? 'yes' : 'no') . ' parent_exists=' . (($restored_parent && $active_template) ? ($restored_parent->exists() ? 'yes' : 'no') : 'n/a'));
+      }
+
+      if ($active_theme_is_valid) {
+        switch_theme($active_stylesheet, $active_template);
+        if (function_exists('gitup_log')) {
+          gitup_log('manual theme restore: switch_theme called with stylesheet=' . $active_stylesheet . ' template=' . $active_template);
+        }
+      } else {
+        $result = new WP_Error('theme_reactivation_failed', __('Theme files were updated, but the active theme could not be restored cleanly.', 'gitup'));
+        if (function_exists('gitup_log')) {
+          gitup_log('manual theme restore: active theme could not be restored after install');
+        }
+      }
+    }
+  }
 
   // Om aktiva temat uppdaterades krävs ingen reaktivering; WP använder mappen.
   if ($result && !is_wp_error($result)) {
@@ -1160,8 +1287,7 @@ add_action('admin_post_gitup_themes_install_release', function () {
     $ok  = '0';
   }
 
-  wp_safe_redirect(add_query_arg(['page' => 'gitup-settings', 'gitup_msg' => urlencode($msg), 'ok' => $ok], admin_url('tools.php')));
-  exit;
+  gitup_redirect_with_notice($msg, $ok);
 });
 
 
@@ -1173,11 +1299,10 @@ add_action('admin_post_gitup_clear_cache', function() {
   check_admin_referer('gitup_clear_cache');
   gitup_clear_github_cache();
   // Redirect tillbaka till settings med notice
-  $redirect_url = add_query_arg([
-    'page' => 'gitup-settings',
+  $redirect_url = gitup_get_settings_page_url([
     'tab' => 'settings',
     'gitup_cache_cleared' => '1'
-  ], admin_url('tools.php'));
+  ]);
   wp_safe_redirect($redirect_url);
   exit;
 });
