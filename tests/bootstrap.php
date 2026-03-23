@@ -18,6 +18,10 @@ if (!defined('MINUTE_IN_SECONDS')) {
     define('MINUTE_IN_SECONDS', 60);
 }
 
+if (!defined('DAY_IN_SECONDS')) {
+    define('DAY_IN_SECONDS', 86400);
+}
+
 if (!defined('WP_DEBUG')) {
     define('WP_DEBUG', false);
 }
@@ -28,6 +32,8 @@ $GLOBALS['gitup_test_transients'] = [];
 $GLOBALS['gitup_test_http_responses'] = [];
 $GLOBALS['gitup_test_http_calls'] = [];
 $GLOBALS['gitup_test_theme_root'] = sys_get_temp_dir() . '/gitup-test-themes';
+$GLOBALS['gitup_test_github_plugins'] = [];
+$GLOBALS['gitup_test_github_themes'] = [];
 
 function add_filter($hook_name, $callback, $priority = 10, $accepted_args = 1) {
     $GLOBALS['gitup_test_hooks'][$hook_name][$priority][] = [
@@ -128,6 +134,15 @@ function admin_url($path = '') {
     return 'https://example.test/wp-admin/' . ltrim((string) $path, '/');
 }
 
+function add_query_arg($args, $url = '') {
+    $query = http_build_query((array) $args);
+    if ($query === '') {
+        return $url;
+    }
+
+    return rtrim((string) $url, '?') . (str_contains((string) $url, '?') ? '&' : '?') . $query;
+}
+
 function esc_url($url) {
     return (string) $url;
 }
@@ -140,8 +155,66 @@ function esc_html($text) {
     return (string) $text;
 }
 
+function esc_attr($text) {
+    return (string) $text;
+}
+
 function __($text, $domain = null) {
     return $text;
+}
+
+function sanitize_text_field($value) {
+    return is_scalar($value) ? trim((string) $value) : '';
+}
+
+function wp_unslash($value) {
+    return $value;
+}
+
+function wp_verify_nonce($nonce, $action = -1) {
+    return true;
+}
+
+function wp_safe_redirect($location, $status = 302, $x_redirect_by = 'WordPress') {
+    $GLOBALS['gitup_test_last_redirect'] = $location;
+    return true;
+}
+
+function current_time($type, $gmt = 0) {
+    if ($type === 'timestamp') {
+        return time();
+    }
+    return time();
+}
+
+function human_time_diff($from, $to = null) {
+    $to = $to ?? time();
+    $diff = max(0, (int) $to - (int) $from);
+
+    if ($diff >= DAY_IN_SECONDS) {
+        $value = (int) floor($diff / DAY_IN_SECONDS);
+        return $value . ' day' . ($value === 1 ? '' : 's');
+    }
+
+    if ($diff >= HOUR_IN_SECONDS) {
+        $value = (int) floor($diff / HOUR_IN_SECONDS);
+        return $value . ' hour' . ($value === 1 ? '' : 's');
+    }
+
+    $value = max(1, (int) floor($diff / MINUTE_IN_SECONDS));
+    return $value . ' min';
+}
+
+function date_i18n($format, $timestamp) {
+    return date($format, (int) $timestamp);
+}
+
+function get_github_plugins($refresh = false) {
+    return $GLOBALS['gitup_test_github_plugins'];
+}
+
+function get_github_themes($refresh = false) {
+    return $GLOBALS['gitup_test_github_themes'];
 }
 
 function wp_kses_post($text) {
@@ -215,6 +288,9 @@ function gitup_test_reset_state(): void {
     $GLOBALS['gitup_test_http_responses'] = [];
     $GLOBALS['gitup_test_http_calls'] = [];
     $GLOBALS['gitup_test_theme_root'] = sys_get_temp_dir() . '/gitup-test-themes';
+    $GLOBALS['gitup_test_last_redirect'] = null;
+    $GLOBALS['gitup_test_github_plugins'] = [];
+    $GLOBALS['gitup_test_github_themes'] = [];
 }
 
 function gitup_test_queue_http_response(string $url, $response): void {
@@ -240,3 +316,5 @@ function gitup_test_http_call_count(string $url): int {
 }
 
 require_once dirname(__DIR__) . '/gitup-updater.php';
+require_once dirname(__DIR__) . '/options.php';
+require_once dirname(__DIR__) . '/site-health.php';

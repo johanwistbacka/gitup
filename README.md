@@ -1,5 +1,5 @@
 # GitUp
-> **Version:** 2026.03.23.01
+> **Version:** 2026.03.23.02-beta
  Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.
 
 # GitUp
@@ -53,6 +53,42 @@ En WordPress-plugin som hanterar **automatiska uppdateringar** för plugins och 
 - Resultatet cache:as (1h vid lyckad tag, 5min vid fel/N/A) så att sidan inte blir långsam.
 - Om en nyare version hittas skickas den in i WordPress egna uppdaterings-API, så att den syns på *wp-admin/update-core.php*.
 
+## Viktiga beslut
+
+### GitHub-URL:er som stöds
+
+- GitUp normaliserar repo-URL:er till full GitHub-URL utan trailing slash.
+- Giltiga repos måste peka på riktiga GitHub-hosts, i praktiken `github.com` eller `www.github.com` för repo-URL:er.
+- Paket hämtas via `codeload.github.com` och API-anrop går via `api.github.com`.
+- Releasetaggar URL-encodas alltid vid pakethämtning, så även taggar med t.ex. `/` eller mellanslag fungerar.
+
+### Releases och prereleases
+
+- Standardläge använder stabil release-logik och exkluderar prereleases.
+- Om `Tillåt förhandsreleaser` är aktiverat används samma prerelease-beteende i både UI och auto-uppdateringar.
+- Om vanliga releases saknas faller GitUp tillbaka till Git tags.
+- Versionsjämförelser normaliserar ledande `v`, så `v1.2.3` och `1.2.3` behandlas som samma version.
+
+### Manuella installationer
+
+- Manuella plugin- och temainstallationer litar inte på postade `repo`-värden från formuläret.
+- GitUp slår i stället upp repo från installerat plugin/tema på serversidan och verifierar att vald tagg faktiskt finns i release-listan innan installation startar.
+- Pluginuppdateringar installeras tillbaka till samma pluginmapp.
+- Temauppdateringar följer WordPress theme-upgrader-flöde och ser till att temarot, destination och stylesheet hålls stabila även när aktivt tema uppdateras.
+
+### Token och privata repos
+
+- Publika repos fungerar utan token, men privata repos kräver en giltig GitHub-token.
+- Tokenstatus normaliseras till samma tillstånd i admin, Site Health och release-/repohantering: `missing`, `unknown`, `valid`, `invalid`, `expired`.
+- Vid `401` markeras token som ogiltig och GitUp kan visa admin-notice samt skicka varningsmail högst en gång per dygn.
+- Vid `403` behandlas det i första hand som rate limiting och visas separat från vanliga "inga releaser"-fall.
+
+### Loggning och testning
+
+- Debug-loggning är avsiktligt koncentrerad kring HTTP, source selection, package options och upgrader-resultat.
+- En lättviktig regressionssvit finns i `tests/` och kan köras med `php tests/run.php`.
+- Testsviten täcker bland annat versionslogik, URL-byggande, release/cache, Site Health-status och känsliga theme-upgrader-hooks.
+
 ## Manuell installation av release
 
 På inställningssidan visas en tabell med:
@@ -84,37 +120,26 @@ Loggen hittar du i `wp-content/debug.log`.
 - Endast GitHub-stöd (ej GitLab, Bitbucket etc).
 - Tar alltid första icke-draft release (eller prerelease om tillåtet), inte "latest commit" på branch.
 
-## Roadmap / TODO
+## Nästa steg
 
-### Prioriterat nästa steg:
-- [ ] Flytta API-anrop till cron/AJAX för att snabba upp admin-sidor.
-- [x] Förbättrad logik för "Inga releaser hittades":
-    - Giltig token → visar "Inga releaser hittades" om inget release finns.
-    - Ogiltig token → publika repos fungerar, privata visar "Private repo / 404".
-    - Ingen token → publika repos fungerar, privata visar "Private repo / 404".
-    - Rate limit nådd → visar "GitHub API rate limit reached. Please add or update your token."
-- [x] Visa release notes, datum och länk till GitHub-release i UI.
-- [x] Integrera med Site Health så att tokenstatus och uppdateringsfel visas där.
-- [x] Flyttat CSS, JS och bilder till `assets/`-struktur (`css`, `js`, `scss`, `images`).
-- [x] Flyttat Site Health-relaterad logik till egen fil `site-health.php`.
-- [x] Lagt till SVG-ikon för pluginet.
-- [x] Lagt till full översättningsstöd (textdomän i alla strängar, POT-fil).
-- [x] Genererat `.pot` via WP-CLI (`wp i18n make-pot`).
-- [x] Förbättrat UI för mobil (tabellen mer responsiv och knapparna bättre placerade).
-
-### Eventuella förbättringar
-- Stöd för att välja release direkt från wp-admin/update-core.php (avviker från WordPress-standard, så ej prioriterad).
-- Stöd för GitHub-webhooks för att trigga uppdateringskontroll vid ny release.
-- Lägg till WP-CLI-kommandon (`wp gitup check`, `wp gitup update`).
-- Fallback till GitHub commits om inga releasetaggar finns.
-- Möjlighet att uppdatera alla plugins/teman i en batch från options-sidan.
+- Bekräfta manuell nedladdning för repo med specialtecken i taggnamn.
+- Lägg till tydligare varning vid nedgradering i UI.
+- Lägg till stöd för installation av plugin/tema direkt från GitHub-URL.
+- Lägg till fler tester för admin-post-flöden och integrationsfall i riktig WordPress-miljö.
+- Överväg att flytta vissa API-anrop till cron eller AJAX om admin-sidan blir tung i större installationer.
 
 ## Changelog
+
+### 2026.03.23.02-beta
+- Förbättrad dokumentation i README kring GitHub-URL:er, prereleases, manuella installationer, tokenstatus och teststrategi.
+- Gjort TODO-listan mer överskådlig genom att flytta avklarade delar till en kort historik och lyfta fram kvarvarande fokusområden.
+- Utökat regressionssviten med tester för admin-status, Site Health och fler release-/cache-scenarier.
 
 ### 2026.03.23.01
 - Stabiliserat plugin- och temauppdateringar mot GitHub med säkrare repo-/URL-hantering och server-side releasevalidering.
 - Fixat regressionsbuggar vid uppdatering av aktivt tema, inklusive korrekt temarot, destination och stylesheet-hantering i upgraderflödet.
 - Lagt till en körbar regressionssvit för versionslogik, releasehämtning/cache och känsliga theme-upgrader-hooks.
+- Renodlat Site Health-logiken och samlat debug-loggning runt tydligare hjälpare.
 
 ### 2026.03.16.01
 - Bytt pluginidentitet fullt ut till GitUp, inklusive pluginmapp, textdomän och interna `gitup_*`-identifierare.

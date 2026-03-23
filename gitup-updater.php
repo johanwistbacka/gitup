@@ -43,6 +43,28 @@ function gitup_log($msg) {
   }
 }
 
+if (!function_exists('gitup_log_glob_contents')) {
+  function gitup_log_glob_contents($label, $path) {
+    gitup_log($label . '=' . json_encode(glob(trailingslashit((string) $path) . '*')));
+  }
+}
+
+if (!function_exists('gitup_log_upgrader_result')) {
+  function gitup_log_upgrader_result($label, $result) {
+    if (is_wp_error($result)) {
+      gitup_log(
+        $label .
+        ': ERROR code=' . $result->get_error_code() .
+        ' message=' . $result->get_error_message() .
+        ' data=' . json_encode($result->get_error_data())
+      );
+      return;
+    }
+
+    gitup_log($label . ': OK ' . json_encode($result));
+  }
+}
+
 if (!function_exists('gitup_normalize_version_tag')) {
   function gitup_normalize_version_tag($version) {
     if (!is_string($version)) {
@@ -402,7 +424,6 @@ if (!class_exists('GitUpUpdater')) {
       // === Teman: mata in uppdateringar + info-popup ===
       add_filter('pre_set_site_transient_update_themes', [$this, 'check_for_theme_update']);
       add_filter('themes_api', [$this, 'theme_info'], 10, 3);
-      gitup_log('GitUpUpdater: theme update hooks registered');
     }
 
     public static function get_instance() {
@@ -572,12 +593,10 @@ if (!class_exists('GitUpUpdater')) {
      * @return object            Modifierad transient.
      */
     public function check_for_theme_update($transient) {
-      gitup_log('check_for_theme_update: start');
       if (!is_object($transient)) {
         $transient = new stdClass();
       }
       if (!isset($transient->checked)) {
-        gitup_log('check_for_theme_update: no checked property on transient');
         return $transient;
       }
       $themes = wp_get_themes();
@@ -897,11 +916,11 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
       }
 
       gitup_log('theme: selected theme root ' . $theme_root . ' for stylesheet ' . $hook_extra['theme']);
-      gitup_log('theme: selected root contents=' . json_encode(glob(trailingslashit($theme_root) . '*')));
+      gitup_log_glob_contents('theme: selected root contents', $theme_root);
       return $theme_root;
     }
     gitup_log('theme: no valid theme root found under source ' . $source);
-    gitup_log('theme: source contents=' . json_encode(glob(trailingslashit($source) . '*')));
+    gitup_log_glob_contents('theme: source contents', $source);
     return $source;
   }
 
@@ -935,7 +954,7 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
       }
       gitup_log('main file header check: file=' . $mf . ' has_header=' . ($has_header ? 'yes' : 'no') . ' plugin_name=' . $plugin_name);
       gitup_log('main file found at top-level. returning ' . $source);
-      gitup_log('ls(source)=' . json_encode(glob(trailingslashit($source) . '*')));
+      gitup_log_glob_contents('ls(source)', $source);
       return $source;
     }
 
@@ -950,7 +969,7 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
       $plugin_main_path = $matches[0];
       $plugin_dir_found = dirname($plugin_main_path);
       gitup_log('main file found deeper. plugin_dir_found=' . $plugin_dir_found);
-      gitup_log('ls(plugin_dir_found)=' . json_encode(glob(trailingslashit($plugin_dir_found) . '*')));
+      gitup_log_glob_contents('ls(plugin_dir_found)', $plugin_dir_found);
       return $plugin_dir_found;
     }
   }
@@ -963,7 +982,7 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
         $contents = @file_get_contents($phpfile, false, null, 0, 8192);
         if ($contents !== false && preg_match('/^\s*\*?\s*Plugin Name:\s*(.+)$/mi', $contents)) {
           gitup_log('fallback subdir plugin header in ' . $dir);
-          gitup_log('ls(dir)=' . json_encode(glob(trailingslashit($dir) . '*')));
+          gitup_log_glob_contents('ls(dir)', $dir);
           return $dir;
         }
       }
@@ -975,13 +994,13 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
     $contents = @file_get_contents($phpfile, false, null, 0, 8192);
     if ($contents !== false && preg_match('/^\s*\*?\s*Plugin Name:\s*(.+)$/mi', $contents)) {
       gitup_log('fallback root-level plugin header in ' . $phpfile . ' returning ' . $source);
-      gitup_log('ls(source)=' . json_encode(glob(trailingslashit($source) . '*')));
+      gitup_log_glob_contents('ls(source)', $source);
       return $source;
     }
   }
 
   gitup_log('no valid plugin dir detected; returning original source ' . $source);
-  gitup_log('ls(source-final)=' . json_encode(glob(trailingslashit($source) . '*')));
+  gitup_log_glob_contents('ls(source-final)', $source);
   return $source;
 }, 10, 4);
 
@@ -1007,11 +1026,7 @@ add_filter('upgrader_install_package_result', function ($result, $hook_extra) {
     }
   }
 
-  if (is_wp_error($result)) {
-    gitup_log('install_package_result: ERROR code=' . $result->get_error_code() . ' message=' . $result->get_error_message() . ' data=' . json_encode($result->get_error_data()));
-  } else {
-    gitup_log('install_package_result: OK ' . json_encode($result));
-  }
+  gitup_log_upgrader_result('install_package_result', $result);
   gitup_log('install_package_result hook_extra=' . json_encode($hook_extra));
   return $result;
 }, 10, 2);
@@ -1022,10 +1037,10 @@ add_filter('upgrader_install_package_result', function ($result, $hook_extra) {
 add_action('upgrader_post_install', function ($true, $hook_extra, $result) {
   gitup_log('post_install: destination=' . ($result['destination'] ?? '') . ' source=' . ($result['source'] ?? ''));
   if (!empty($result['destination'])) {
-    gitup_log('ls(destination)=' . json_encode(glob(trailingslashit($result['destination']) . '*')));
+    gitup_log_glob_contents('ls(destination)', $result['destination']);
   }
   if (!empty($result['source'])) {
-    gitup_log('ls(source)=' . json_encode(glob(trailingslashit($result['source']) . '*')));
+    gitup_log_glob_contents('ls(source)', $result['source']);
   }
   return $true;
 }, 10, 3);

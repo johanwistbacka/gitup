@@ -49,6 +49,89 @@ if (!function_exists('gitup_fetch_releases')) {
   }
 }
 
+if (!function_exists('gitup_should_include_prereleases')) {
+  function gitup_should_include_prereleases() {
+    return get_option('gitup_include_prereleases', '0') === '1';
+  }
+}
+
+if (!function_exists('gitup_extract_release_tags')) {
+  function gitup_extract_release_tags($releases) {
+    $valid_tags = [];
+    foreach ($releases as $release) {
+      if (!empty($release['tag'])) {
+        $valid_tags[] = $release['tag'];
+      }
+    }
+    return $valid_tags;
+  }
+}
+
+if (!function_exists('gitup_get_verified_release_package_url')) {
+  function gitup_get_verified_release_package_url($repo_url, $tag, $error_context = 'component') {
+    $releases = gitup_fetch_releases($repo_url, gitup_should_include_prereleases(), 50);
+    $valid_tags = gitup_extract_release_tags($releases);
+
+    if (!in_array($tag, $valid_tags, true)) {
+      gitup_redirect_with_notice(
+        sprintf(
+          __('Selected %s release could not be verified.', 'gitup'),
+          $error_context
+        )
+      );
+    }
+
+    $package = function_exists('gitup_build_github_package_url') ? gitup_build_github_package_url($repo_url, $tag) : '';
+    if ($package === '') {
+      gitup_redirect_with_notice(
+        sprintf(
+          __('Could not build GitHub package URL for this %s.', 'gitup'),
+          $error_context
+        )
+      );
+    }
+
+    return [
+      'package'    => $package,
+      'releases'   => $releases,
+      'valid_tags' => $valid_tags,
+    ];
+  }
+}
+
+if (!function_exists('gitup_build_plugin_package_options_filter')) {
+  function gitup_build_plugin_package_options_filter($plugin) {
+    return function ($options) use ($plugin) {
+      $options['hook_extra']['plugin'] = $plugin;
+      if (defined('WP_PLUGIN_DIR')) {
+        $expected_dir = dirname($plugin);
+        $plugins_dir = trailingslashit(WP_PLUGIN_DIR);
+        $options['destination'] = trailingslashit($plugins_dir . $expected_dir);
+        $options['destination_name'] = $expected_dir;
+        $options['clear_destination'] = true;
+        $options['abort_if_destination_exists'] = false;
+      }
+      return $options;
+    };
+  }
+}
+
+if (!function_exists('gitup_build_theme_package_options_filter')) {
+  function gitup_build_theme_package_options_filter($theme_stylesheet) {
+    return function ($options) use ($theme_stylesheet) {
+      $options['hook_extra']['theme'] = $theme_stylesheet;
+      $options['destination'] = get_theme_root();
+      unset($options['destination_name']);
+      $options['clear_destination'] = true;
+      $options['abort_if_destination_exists'] = false;
+      if (function_exists('gitup_log')) {
+        gitup_log('manual theme install package_options: ' . json_encode($options));
+      }
+      return $options;
+    };
+  }
+}
+
 if (!function_exists('gitup_get_releases_error_code')) {
   function gitup_get_releases_error_code($releases) {
     return (!empty($releases) && !empty($releases[0]['error'])) ? $releases[0]['error'] : '';
@@ -1085,41 +1168,15 @@ add_action('admin_post_gitup_install_release', function () {
     gitup_redirect_with_notice(__('No valid GitHub repository configured for this plugin.', 'gitup'));
   }
 
-  $releases = gitup_fetch_releases($repo_url, get_option('gitup_include_prereleases', '0') === '1', 50);
-  $valid_tags = [];
-  foreach ($releases as $release) {
-    if (!empty($release['tag'])) {
-      $valid_tags[] = $release['tag'];
-    }
-  }
-
-  if (!in_array($tag, $valid_tags, true)) {
-    gitup_redirect_with_notice(__('Selected plugin release could not be verified.', 'gitup'));
-  }
-
-  $package = function_exists('gitup_build_github_package_url') ? gitup_build_github_package_url($repo_url, $tag) : '';
-  if ($package === '') {
-    gitup_redirect_with_notice(__('Could not build GitHub package URL for this plugin.', 'gitup'));
-  }
+  $release_package = gitup_get_verified_release_package_url($repo_url, $tag, 'plugin');
+  $package = $release_package['package'];
 
   // Använd WordPress inbyggda upgrader-API (visar status i UI)
   $skin = new Automatic_Upgrader_Skin();
   $upgrader = new Plugin_Upgrader($skin);
 
   // Peka WordPress mot rätt destinationsmapp (utan tag i namnet)
-  $package_options_filter = function ($options) use ($plugin) {
-      // Skriv över destinationen så namnet blir identiskt med nuvarande mapp
-      $options['hook_extra']['plugin'] = $plugin; // används av våra hooks
-      if (defined('WP_PLUGIN_DIR')) {
-        $expected_dir = dirname($plugin);
-        $plugins_dir = trailingslashit(WP_PLUGIN_DIR);
-        $options['destination'] = trailingslashit($plugins_dir . $expected_dir);
-        $options['destination_name'] = $expected_dir;
-        $options['clear_destination'] = true;
-        $options['abort_if_destination_exists'] = false;
-      }
-      return $options;
-  };
+  $package_options_filter = gitup_build_plugin_package_options_filter($plugin);
   add_filter('upgrader_package_options', $package_options_filter);
 
   $was_active = is_plugin_active($plugin);
@@ -1168,22 +1225,9 @@ add_action('admin_post_gitup_themes_install_release', function () {
     gitup_redirect_with_notice(__('No valid GitHub repository configured for this theme.', 'gitup'));
   }
 
-  $releases = gitup_fetch_releases($repo_url, get_option('gitup_include_prereleases', '0') === '1', 50);
-  $valid_tags = [];
-  foreach ($releases as $release) {
-    if (!empty($release['tag'])) {
-      $valid_tags[] = $release['tag'];
-    }
-  }
-
-  if (!in_array($tag, $valid_tags, true)) {
-    gitup_redirect_with_notice(__('Selected theme release could not be verified.', 'gitup'));
-  }
-
-  $package = function_exists('gitup_build_github_package_url') ? gitup_build_github_package_url($repo_url, $tag) : '';
-  if ($package === '') {
-    gitup_redirect_with_notice(__('Could not build GitHub package URL for this theme.', 'gitup'));
-  }
+  $release_package = gitup_get_verified_release_package_url($repo_url, $tag, 'theme');
+  $package = $release_package['package'];
+  $valid_tags = $release_package['valid_tags'];
 
   // WordPress Theme_Upgrader – hanterar unzip och filkopiering
   $skin = new Automatic_Upgrader_Skin();
@@ -1198,19 +1242,7 @@ add_action('admin_post_gitup_themes_install_release', function () {
   }
 
   // Sätt destination till temats mapp (utan tag i katalognamnet)
-  $package_options_filter = function ($options) use ($theme_stylesheet) {
-    // Behall themes root som destination; source_selection byter namn pa den
-    // uppackade temamappen till stylesheet sa att core behandlar det som en riktig update.
-    $options['hook_extra']['theme'] = $theme_stylesheet;
-    $options['destination'] = get_theme_root();
-    unset($options['destination_name']);
-    $options['clear_destination'] = true;
-    $options['abort_if_destination_exists'] = false;
-    if (function_exists('gitup_log')) {
-      gitup_log('manual theme install package_options: ' . json_encode($options));
-    }
-    return $options;
-  };
+  $package_options_filter = gitup_build_theme_package_options_filter($theme_stylesheet);
   add_filter('upgrader_package_options', $package_options_filter);
   add_filter('upgrader_pre_install', [$upgrader, 'current_before'], 10, 2);
   add_filter('upgrader_post_install', [$upgrader, 'current_after'], 10, 2);
@@ -1243,8 +1275,8 @@ add_action('admin_post_gitup_themes_install_release', function () {
   remove_filter('upgrader_pre_install', [$upgrader, 'current_before'], 10);
   remove_filter('upgrader_package_options', $package_options_filter);
   if (function_exists('gitup_log')) {
-    if (is_wp_error($result)) {
-      gitup_log('manual theme install result: ERROR code=' . $result->get_error_code() . ' message=' . $result->get_error_message());
+    if (function_exists('gitup_log_upgrader_result')) {
+      gitup_log_upgrader_result('manual theme install result', $result);
     } else {
       gitup_log('manual theme install result: ' . json_encode($result));
     }

@@ -1,82 +1,181 @@
-<?php 
+<?php
 /**
  * Site Health: GitUp status test
  */
 
+if (!function_exists('gitup_get_site_health_badge')) {
+  function gitup_get_site_health_badge($color = 'blue') {
+    return [
+      'label' => __('GitUp', 'gitup'),
+      'color' => $color,
+    ];
+  }
+}
+
+if (!function_exists('gitup_get_settings_action_link')) {
+  function gitup_get_settings_action_link($label = null, $button_class = '') {
+    $label = $label ?: __('Go to settings', 'gitup');
+    $class_attr = $button_class !== '' ? ' class="' . esc_attr($button_class) . '"' : '';
+
+    return sprintf(
+      '<a href="%s"%s>%s</a>',
+      esc_url(admin_url('tools.php?page=gitup-settings')),
+      $class_attr,
+      esc_html($label)
+    );
+  }
+}
+
+if (!function_exists('gitup_get_site_health_token_summary')) {
+  function gitup_get_site_health_token_summary() {
+    $token = get_option('gitup_github_token', '');
+    $last_verified = (int) get_option('gitup_token_last_verified');
+    $last_updated = (int) get_option('gitup_token_last_updated');
+    $now = current_time('timestamp');
+    $token_state = function_exists('gitup_get_token_state')
+      ? gitup_get_token_state()
+      : (!empty($token) ? 'unknown' : 'missing');
+
+    $summary = [
+      'token'         => $token,
+      'token_state'   => $token_state,
+      'last_verified' => $last_verified,
+      'last_updated'  => $last_updated,
+      'now'           => $now,
+      'token_ok'      => false,
+      'label'         => __('No GitHub token saved', 'gitup'),
+      'description'   => __('No GitHub token saved', 'gitup'),
+      'site_status'   => 'critical',
+      'badge_color'   => 'red',
+      'action_label'  => __('Go to settings', 'gitup'),
+    ];
+
+    if ($token_state === 'missing') {
+      $summary['description'] = __('Public repositories will work, but private repositories require a valid token.', 'gitup');
+      $summary['site_status'] = 'recommended';
+      $summary['badge_color'] = 'blue';
+      return $summary;
+    }
+
+    if (in_array($token_state, ['invalid', 'expired'], true)) {
+      $summary['label'] = __('GitHub token is invalid or expired', 'gitup');
+      $summary['description'] = __('Your saved GitHub token is no longer usable. Update it in settings.', 'gitup');
+      $summary['action_label'] = __('Update token', 'gitup');
+      return $summary;
+    }
+
+    if ($token_state === 'valid' && $last_verified) {
+      $summary['token_ok'] = ($now - $last_verified) < 14 * DAY_IN_SECONDS;
+      $summary['label'] = sprintf(
+        __('GitHub token verified %s ago', 'gitup'),
+        human_time_diff($last_verified, $now)
+      );
+      $summary['description'] = sprintf(
+        __('Token last verified on %s.', 'gitup'),
+        date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $last_verified)
+      );
+      $summary['site_status'] = $summary['token_ok'] ? 'good' : 'recommended';
+      $summary['badge_color'] = $summary['token_ok'] ? 'green' : 'orange';
+      $summary['action_label'] = __('Re-test token', 'gitup');
+      return $summary;
+    }
+
+    $summary['label'] = __('GitHub token has not been verified recently', 'gitup');
+    $summary['description'] = __('Your token has not been verified in the last 30 days. Visit settings to re-test.', 'gitup');
+    $summary['site_status'] = 'recommended';
+    $summary['badge_color'] = 'orange';
+    $summary['action_label'] = __('Re-test token', 'gitup');
+
+    return $summary;
+  }
+}
+
+if (!function_exists('gitup_get_site_health_release_summary')) {
+  function gitup_get_site_health_release_summary() {
+    $summary = [
+      'status'        => 'N/A',
+      'label'         => '',
+      'error'         => '',
+      'checked_at'    => null,
+    ];
+
+    $github_plugins = function_exists('get_github_plugins') ? get_github_plugins(false) : [];
+    $github_themes = function_exists('get_github_themes') ? get_github_themes(false) : [];
+    $item = !empty($github_plugins) ? $github_plugins[0] : (!empty($github_themes) ? $github_themes[0] : null);
+
+    if (!$item || empty($item['github'])) {
+      return $summary;
+    }
+
+    $repo_url = $item['github'];
+    $include_pre = function_exists('gitup_include_prereleases_enabled')
+      ? gitup_include_prereleases_enabled()
+      : (function_exists('gitup_should_include_prereleases') ? gitup_should_include_prereleases() : (get_option('gitup_include_prereleases', '0') === '1'));
+    $cache_key = 'github_release_' . md5($repo_url . '|' . ($include_pre ? 'pre' : 'stable'));
+    $transient = get_transient($cache_key);
+    $summary['label'] = $item['name'] . ' (' . $repo_url . ')';
+
+    if (is_string($transient) && $transient !== 'N/A') {
+      $summary['status'] = $transient;
+      global $wpdb;
+      if (isset($wpdb) && is_object($wpdb) && method_exists($wpdb, 'get_var') && method_exists($wpdb, 'prepare')) {
+        $timeout_val = $wpdb->get_var($wpdb->prepare(
+          "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s",
+          '_transient_timeout_' . $cache_key
+        ));
+        if ($timeout_val) {
+          $summary['checked_at'] = ((int) $timeout_val) - HOUR_IN_SECONDS;
+        }
+      }
+      return $summary;
+    }
+
+    if (is_array($transient) && !empty($transient[0]['error'])) {
+      $summary['error'] = $transient[0]['error'];
+      $summary['status'] = strtoupper($summary['error']);
+    }
+
+    return $summary;
+  }
+}
+
+if (!function_exists('gitup_build_site_health_result')) {
+  function gitup_build_site_health_result($args) {
+    return [
+      'label'       => $args['label'],
+      'status'      => $args['status'],
+      'badge'       => gitup_get_site_health_badge($args['badge_color'] ?? 'blue'),
+      'description' => $args['description'],
+      'actions'     => $args['actions'] ?? '',
+      'test'        => $args['test'],
+    ];
+  }
+}
+
 // Site Health integration: token status
 add_filter('site_status_tests', function ($tests) {
-    $tests['direct']['gitup_token'] = [
-        'label' => __('GitHub Token Status', 'gitup'),
-        'test'  => function () {
-            $last_verified = intval(get_option('gitup_token_last_verified', 0));
-            $token_state   = function_exists('gitup_get_token_state') ? gitup_get_token_state() : (get_option('gitup_github_token') ? 'unknown' : 'missing');
-            $token         = get_option('gitup_github_token');
+  $tests['direct']['gitup_token'] = [
+    'label' => __('GitHub Token Status', 'gitup'),
+    'test'  => function () {
+      $summary = gitup_get_site_health_token_summary();
 
-            if ($token_state === 'missing') {
-                return [
-                    'label'       => __('No GitHub token set', 'gitup'),
-                    'status'      => 'recommended',
-                    'badge'       => [
-                        'label' => __('GitUp', 'gitup'),
-                        'color' => 'blue',
-                    ],
-                    'description' => __('Public repositories will work, but private repositories require a valid token.', 'gitup'),
-                    'actions'     => sprintf('<a href="%s">%s</a>', esc_url(admin_url('tools.php?page=gitup-settings')), __('Go to settings', 'gitup')),
-                    'test'        => 'gitup_token',
-                ];
-            }
+      return gitup_build_site_health_result([
+        'label'       => $summary['label'],
+        'status'      => $summary['site_status'],
+        'badge_color' => $summary['badge_color'],
+        'description' => $summary['description'],
+        'actions'     => gitup_get_settings_action_link($summary['action_label']),
+        'test'        => 'gitup_token',
+      ]);
+    },
+  ];
 
-            if (in_array($token_state, ['invalid', 'expired'], true)) {
-                return [
-                    'label'       => __('GitHub token is invalid or expired', 'gitup'),
-                    'status'      => 'critical',
-                    'badge'       => [
-                        'label' => __('GitUp', 'gitup'),
-                        'color' => 'red',
-                    ],
-                    'description' => __('Your saved GitHub token is no longer usable. Update it in settings.', 'gitup'),
-                    'actions'     => sprintf('<a href="%s">%s</a>', esc_url(admin_url('tools.php?page=gitup-settings')), __('Update token', 'gitup')),
-                    'test'        => 'gitup_token',
-                ];
-            }
+  $tests['direct']['gitup'] = [
+    'label' => __('GitUp status', 'gitup'),
+    'test'  => 'gitup_health_test',
+  ];
 
-            if (!$last_verified || $last_verified < (time() - 30 * DAY_IN_SECONDS)) {
-                return [
-                    'label'       => __('GitHub token has not been verified recently', 'gitup'),
-                    'status'      => 'recommended',
-                    'badge'       => [
-                        'label' => __('GitUp', 'gitup'),
-                        'color' => 'orange',
-                    ],
-                    'description' => __('Your token has not been verified in the last 30 days. Visit settings to re-test.', 'gitup'),
-                    'actions'     => sprintf('<a href="%s">%s</a>', esc_url(admin_url('tools.php?page=gitup-settings')), __('Re-test token', 'gitup')),
-                    'test'        => 'gitup_token',
-                ];
-            }
-
-            return [
-                'label'       => __('GitHub token is valid', 'gitup'),
-                'status'      => 'good',
-                'badge'       => [
-                    'label' => __('GitUp', 'gitup'),
-                    'color' => 'green',
-                ],
-                'description' => sprintf(
-                    __('Token last verified on %s.', 'gitup'),
-                    date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $last_verified)
-                ),
-                'test'        => 'gitup_token',
-            ];
-        }
-    ];
-    return $tests;
-});
-add_filter('site_status_tests', function($tests) {
-    $tests['direct']['gitup'] = array(
-        'label'    => __('GitUp status', 'gitup'),
-        'test'     => 'gitup_health_test',
-    );
-    return $tests;
+  return $tests;
 });
 
 /**
@@ -85,171 +184,84 @@ add_filter('site_status_tests', function($tests) {
  * @return array
  */
 function gitup_health_test() {
-    // Log that the test was run
-    if (function_exists('gitup_log')) {
-        gitup_log('Site Health test: gitup_health_test called');
-    }
+  if (function_exists('gitup_log')) {
+    gitup_log('Site Health test: gitup_health_test called');
+  }
 
-    $token = get_option('gitup_github_token', '');
-    $last_verified = (int)get_option('gitup_token_last_verified');
-    $last_updated  = (int)get_option('gitup_token_last_updated');
-    $now = current_time('timestamp');
-    $token_state = function_exists('gitup_get_token_state') ? gitup_get_token_state() : (!empty($token) ? 'unknown' : 'missing');
-    $token_status = '';
-    $token_ok = false;
-    $token_days_ago = null;
-    if ($token_state !== 'missing') {
-        if ($token_state === 'valid' && $last_verified) {
-            $token_days_ago = floor(($now - $last_verified) / DAY_IN_SECONDS);
-            $token_status = sprintf(
-                __('GitHub token verified %s ago', 'gitup'),
-                human_time_diff($last_verified, $now)
-            );
-            $token_ok = ($now - $last_verified < 14 * DAY_IN_SECONDS);
-        } elseif ($token_state === 'expired') {
-            $token_status = __('GitHub token has expired', 'gitup');
-        } elseif ($token_state === 'invalid') {
-            $token_status = __('GitHub token is invalid', 'gitup');
-        } else {
-            $token_status = __('GitHub token saved, not verified', 'gitup');
-        }
-    } else {
-        $token_status = __('No GitHub token saved', 'gitup');
-    }
+  $token_summary = gitup_get_site_health_token_summary();
+  $release_summary = gitup_get_site_health_release_summary();
 
-    // Try to get release cache for at least one plugin or theme with GitHub UpdateURI
-    $release_info = '';
-    $release_status = 'N/A';
-    $release_date = null;
-    $release_label = '';
-    $release_error = '';
-    $github_plugins = function_exists('get_github_plugins') ? get_github_plugins(false) : array();
-    $github_themes  = function_exists('get_github_themes') ? get_github_themes(false) : array();
-    $item = null;
-    if (!empty($github_plugins)) {
-        $item = $github_plugins[0];
-    } elseif (!empty($github_themes)) {
-        $item = $github_themes[0];
-    }
-    if ($item && !empty($item['github'])) {
-        // Find the transient key for this repo
-        $repo_url = $item['github'];
-        $include_pre = function_exists('gitup_include_prereleases_enabled') ? gitup_include_prereleases_enabled() : (get_option('gitup_include_prereleases', '0') === '1');
-        $cache_key = 'github_release_' . md5($repo_url . '|' . ($include_pre ? 'pre' : 'stable'));
-        $transient = get_transient($cache_key);
-        $release_label = $item['name'] . ' (' . $repo_url . ')';
-        if (is_string($transient) && $transient !== 'N/A') {
-            $release_status = $transient;
-            // Try to get transient timeout (for when it was set)
-            global $wpdb;
-            $timeout_val = $wpdb->get_var( $wpdb->prepare(
-                "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s",
-                '_transient_timeout_' . $cache_key
-            ));
-            if ($timeout_val) {
-                // WP stores it as a timestamp for expiration; subtract 1h or 5min to estimate set time
-                $timeout = (int)$timeout_val;
-                $lifespan = (is_string($transient) && $transient !== 'N/A') ? HOUR_IN_SECONDS : 5 * MINUTE_IN_SECONDS;
-                $release_date = $timeout - $lifespan;
-            }
-        } elseif (is_array($transient) && !empty($transient[0]['error'])) {
-            $release_error = $transient[0]['error'];
-            $release_status = strtoupper($release_error);
-        } else {
-            $release_status = 'N/A';
-        }
-    }
+  $status = $token_summary['site_status'] === 'good' ? 'good' : $token_summary['site_status'];
+  $description_parts = [];
 
-    // Compose result
-    $status = 'good';
-    $description = '';
-    $actions = array();
-    $badge = array(
-        'label' => 'GitUp',
-        'color' => 'blue',
-    );
-    // Determine status
-    if ($token_state === 'missing') {
-        $status = 'critical';
-        $description .= __('No GitHub token saved. Private repositories and higher API rate limits require a token.', 'gitup');
-    } elseif (in_array($token_state, ['invalid', 'expired'], true)) {
-        $status = 'critical';
-        $description .= __('GitHub token is invalid or expired. Please update it.', 'gitup');
-    } elseif (!$token_ok) {
-        $status = 'recommended';
-        $description .= __('GitHub token verification is old or missing. Please verify your token.', 'gitup');
+  if ($token_summary['token_state'] === 'missing') {
+    $description_parts[] = __('No GitHub token saved. Private repositories and higher API rate limits require a token.', 'gitup');
+  } elseif (in_array($token_summary['token_state'], ['invalid', 'expired'], true)) {
+    $description_parts[] = __('GitHub token is invalid or expired. Please update it.', 'gitup');
+    $status = 'critical';
+  } elseif (!$token_summary['token_ok']) {
+    $description_parts[] = __('GitHub token verification is old or missing. Please verify your token.', 'gitup');
+    if ($status !== 'critical') {
+      $status = 'recommended';
     }
-    if ($release_error === 'rate_limit') {
-        $status = ($status === 'critical') ? 'critical' : 'recommended';
-        $description .= '<br>' . __('GitHub API rate limit was reached while checking releases. Add or verify a token.', 'gitup');
-    } elseif ($release_status === 'N/A') {
-        $status = ($status === 'critical') ? 'critical' : 'recommended';
-        $description .= '<br>' . __('No recent release info could be loaded from GitHub. Check your token and network.', 'gitup');
-    }
+  }
 
-    // Build label
-    if ($token_state !== 'missing') {
-        if ($token_state === 'valid' && $last_verified) {
-            $label = sprintf(
-                __('GitHub token verified %s ago', 'gitup'),
-                human_time_diff($last_verified, $now)
-            );
-        } elseif ($token_state === 'expired') {
-            $label = __('GitHub token has expired', 'gitup');
-        } elseif ($token_state === 'invalid') {
-            $label = __('GitHub token is invalid', 'gitup');
-        } else {
-            $label = __('GitHub token saved, not verified', 'gitup');
-        }
-    } else {
-        $label = __('No GitHub token saved', 'gitup');
+  if ($release_summary['error'] === 'rate_limit') {
+    $description_parts[] = __('GitHub API rate limit was reached while checking releases. Add or verify a token.', 'gitup');
+    if ($status !== 'critical') {
+      $status = 'recommended';
     }
+  } elseif ($release_summary['status'] === 'N/A') {
+    $description_parts[] = __('No recent release info could be loaded from GitHub. Check your token and network.', 'gitup');
+    if ($status !== 'critical') {
+      $status = 'recommended';
+    }
+  }
 
-    // Details for description
-    $description .= '<ul style="margin-top:8px">';
-    if (!empty($token)) {
-        if ($last_verified) {
-            $description .= '<li>' . sprintf(
-                __('Token last verified: %s', 'gitup'),
-                date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $last_verified)
-            ) . '</li>';
-        }
-        if ($last_updated) {
-            $description .= '<li>' . sprintf(
-                __('Token last updated: %s', 'gitup'),
-                date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $last_updated)
-            ) . '</li>';
-        }
+  $details = [];
+  if (!empty($token_summary['token'])) {
+    if ($token_summary['last_verified']) {
+      $details[] = sprintf(
+        __('Token last verified: %s', 'gitup'),
+        date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $token_summary['last_verified'])
+      );
     }
-    if ($release_label) {
-        $description .= '<li>' . sprintf(
-            __('Latest release cache for %s: <strong>%s</strong>', 'gitup'),
-            esc_html($release_label),
-            esc_html($release_status)
-        );
-        if ($release_date) {
-            $description .= ' — ' . sprintf(
-                __('checked %s ago', 'gitup'),
-                human_time_diff($release_date, $now)
-            );
-        }
-        $description .= '</li>';
+    if ($token_summary['last_updated']) {
+      $details[] = sprintf(
+        __('Token last updated: %s', 'gitup'),
+        date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $token_summary['last_updated'])
+      );
     }
-    $description .= '</ul>';
+  }
 
-    // Add action to go to settings page
-    $actions[] = sprintf(
-        '<a href="%s" class="button button-small">%s</a>',
-        esc_url(admin_url('tools.php?page=gitup-settings')),
-        esc_html__('Go to settings', 'gitup')
+  if ($release_summary['label'] !== '') {
+    $release_detail = sprintf(
+      __('Latest release cache for %s: <strong>%s</strong>', 'gitup'),
+      esc_html($release_summary['label']),
+      esc_html($release_summary['status'])
     );
 
-    return array(
-        'status'      => $status,
-        'label'       => $label,
-        'description' => $description,
-        'badge'       => $badge,
-        'actions'     => $actions,
-        'test'        => 'gitup_health_test',
-    );
+    if ($release_summary['checked_at']) {
+      $release_detail .= ' — ' . sprintf(
+        __('checked %s ago', 'gitup'),
+        human_time_diff($release_summary['checked_at'], $token_summary['now'])
+      );
+    }
+
+    $details[] = $release_detail;
+  }
+
+  $description = implode('<br>', $description_parts);
+  if (!empty($details)) {
+    $description .= '<ul style="margin-top:8px"><li>' . implode('</li><li>', $details) . '</li></ul>';
+  }
+
+  return [
+    'status'      => $status,
+    'label'       => $token_summary['label'],
+    'description' => $description,
+    'badge'       => gitup_get_site_health_badge('blue'),
+    'actions'     => [gitup_get_settings_action_link(__('Go to settings', 'gitup'), 'button button-small')],
+    'test'        => 'gitup_health_test',
+  ];
 }
