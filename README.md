@@ -122,11 +122,9 @@ Loggen hittar du i `wp-content/debug.log`.
 
 ## Nästa steg
 
-- Bekräfta manuell nedladdning för repo med specialtecken i taggnamn.
-- Lägg till tydligare varning vid nedgradering i UI.
-- Lägg till stöd för installation av plugin/tema direkt från GitHub-URL.
 - Lägg till fler tester för admin-post-flöden och integrationsfall i riktig WordPress-miljö.
-- Överväg att flytta vissa API-anrop till cron eller AJAX om admin-sidan blir tung i större installationer.
+- Säkerställ tydlig synlighet för GitUps tester i Site Health.
+- Överväg att begränsa GitHub-anrop till explicita uppdateringsflöden och andra mindre prestandaförbättringar i admin.
 
 ## Changelog
 
