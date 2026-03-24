@@ -119,6 +119,39 @@ $color-card-shadow: rgba(0,0,0,0.08);
     white-space: nowrap;
   }
 
+  td.actions .button.update {
+    border-color: #0f7a39;
+    background: #1f9d55;
+    color: #fff;
+
+    &:hover,
+    &:focus {
+      border-color: #0c5d2c;
+      background: #178347;
+      color: #fff;
+    }
+  }
+
+  td.actions .button.downgrade {
+    border-color: #b32d2e;
+    background: #d63638;
+    color: #fff;
+
+    &:hover,
+    &:focus {
+      border-color: #8f2526;
+      background: #b32d2e;
+      color: #fff;
+    }
+  }
+
+  td.actions .button.reinstall,
+  td.actions .button.install {
+    border-color: #8c8f94;
+    background: #f6f7f7;
+    color: #2c3338;
+  }
+
   /* Repo cell: reuse link truncate and font */
   td.repo a {
     font-size: 13px;

@@ -42,27 +42,29 @@
             return 0;
           }
 
+          function getCompareResult(form) {
+            if (!form) return null;
+            var row = form.closest('tr');
+            var select = form.querySelector('.gitup-version-select');
+            if (!row || !select) return null;
+
+            var currentVersion = row.dataset.currentversion || row.dataset.currentVersion;
+            if (!currentVersion) return null;
+
+            return compareVersions(select.value, currentVersion);
+          }
+
           document.querySelectorAll('.gitup-version-select').forEach(function(select){
             select.addEventListener('change', function() {
               var selectedVersion = select.value;
-              // console.log('Selected version:', selectedVersion);
               var row = select.closest('tr');
               if (!row) return;
 
               var currentVersion = row.dataset.currentversion || row.dataset.currentVersion;
-              // console.log('currentVersion:', currentVersion);
               var cmp = compareVersions(selectedVersion, currentVersion);
-              if (cmp > 0) {
-                console.log('Upgrade: from', currentVersion, 'to', selectedVersion);
-              } else if (cmp < 0) {
-                console.log('Downgrade: from', currentVersion, 'to', selectedVersion);
-              } else {
-                console.log('Re-install: version', currentVersion);
-              }
               var installBtn = row.querySelector('input[type="submit"]');
               if (!installBtn || !currentVersion) return;
 
-              
               var label = '';
               var className = '';
               var classRow = '';
@@ -88,6 +90,20 @@
               row.classList.remove('reinstall');
               if (classRow) {
                 row.classList.add(classRow);
+              }
+            });
+          });
+
+          document.querySelectorAll('.gitup-release-form').forEach(function(form){
+            form.addEventListener('submit', function(event) {
+              var cmp = getCompareResult(form);
+              if (cmp === null || cmp >= 0) {
+                return;
+              }
+
+              var message = form.dataset.downgradeConfirm || 'Warning: downgrading may reintroduce bugs or incompatibilities. Make sure you know why you are installing an older release.';
+              if (!window.confirm(message)) {
+                event.preventDefault();
               }
             });
           });

@@ -1,5 +1,5 @@
 # GitUp
-> **Version:** 2026.03.23.02-beta
+> **Version:** 2026.03.24.01
  Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.
 
 # GitUp
@@ -129,6 +129,11 @@ Loggen hittar du i `wp-content/debug.log`.
 - Överväg att flytta vissa API-anrop till cron eller AJAX om admin-sidan blir tung i större installationer.
 
 ## Changelog
+
+### 2026.03.24.01
+- Skarp release efter verifierad WordPress-runda för publikt pluginrepo, privat pluginrepo, publikt tema och taggar med specialtecken.
+- Förbättrad UI för releaseval med färgkodade knappar och extra bekräftelse vid nedgradering.
+- Utökad regressionssvit för manuella installförberedelser, update checks, info-popups, HTTP-hooks och plugin-/theme-upgrader-hooks.
 
 ### 2026.03.23.02-beta
 - Förbättrad dokumentation i README kring GitHub-URL:er, prereleases, manuella installationer, tokenstatus och teststrategi.

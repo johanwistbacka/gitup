@@ -67,12 +67,46 @@ if (!function_exists('gitup_extract_release_tags')) {
   }
 }
 
-if (!function_exists('gitup_get_verified_release_package_url')) {
-  function gitup_get_verified_release_package_url($repo_url, $tag, $error_context = 'component') {
+if (!function_exists('gitup_validate_release_package_selection')) {
+  function gitup_validate_release_package_selection($repo_url, $tag) {
     $releases = gitup_fetch_releases($repo_url, gitup_should_include_prereleases(), 50);
     $valid_tags = gitup_extract_release_tags($releases);
 
     if (!in_array($tag, $valid_tags, true)) {
+      return new WP_Error(
+        'gitup_release_not_verified',
+        __('Selected release could not be verified.', 'gitup'),
+        [
+          'releases'   => $releases,
+          'valid_tags' => $valid_tags,
+        ]
+      );
+    }
+
+    $package = function_exists('gitup_build_github_package_url') ? gitup_build_github_package_url($repo_url, $tag) : '';
+    if ($package === '') {
+      return new WP_Error(
+        'gitup_package_url_failed',
+        __('Could not build GitHub package URL.', 'gitup'),
+        [
+          'releases'   => $releases,
+          'valid_tags' => $valid_tags,
+        ]
+      );
+    }
+
+    return [
+      'package'    => $package,
+      'releases'   => $releases,
+      'valid_tags' => $valid_tags,
+    ];
+  }
+}
+
+if (!function_exists('gitup_get_verified_release_package_url')) {
+  function gitup_get_verified_release_package_url($repo_url, $tag, $error_context = 'component') {
+    $result = gitup_validate_release_package_selection($repo_url, $tag);
+    if (is_wp_error($result)) {
       gitup_redirect_with_notice(
         sprintf(
           __('Selected %s release could not be verified.', 'gitup'),
@@ -81,20 +115,62 @@ if (!function_exists('gitup_get_verified_release_package_url')) {
       );
     }
 
-    $package = function_exists('gitup_build_github_package_url') ? gitup_build_github_package_url($repo_url, $tag) : '';
-    if ($package === '') {
-      gitup_redirect_with_notice(
-        sprintf(
-          __('Could not build GitHub package URL for this %s.', 'gitup'),
-          $error_context
-        )
-      );
+    return $result;
+  }
+}
+
+if (!function_exists('gitup_prepare_plugin_release_install')) {
+  function gitup_prepare_plugin_release_install($plugin, $tag) {
+    $plugins = get_plugins();
+    if (empty($plugins[$plugin])) {
+      return new WP_Error('gitup_plugin_not_found', __('Plugin not found.', 'gitup'));
+    }
+
+    $plugin_info = $plugins[$plugin];
+    $repo_url = function_exists('gitup_get_plugin_repo_url') ? gitup_get_plugin_repo_url($plugin_info) : '';
+    if ($repo_url === '') {
+      return new WP_Error('gitup_plugin_repo_missing', __('No valid GitHub repository configured for this plugin.', 'gitup'));
+    }
+
+    $release_package = gitup_validate_release_package_selection($repo_url, $tag);
+    if (is_wp_error($release_package)) {
+      return new WP_Error('gitup_plugin_release_not_verified', __('Selected plugin release could not be verified.', 'gitup'));
     }
 
     return [
-      'package'    => $package,
-      'releases'   => $releases,
-      'valid_tags' => $valid_tags,
+      'plugin_info' => $plugin_info,
+      'repo_url'    => $repo_url,
+      'package'     => $release_package['package'],
+      'releases'    => $release_package['releases'],
+      'valid_tags'  => $release_package['valid_tags'],
+    ];
+  }
+}
+
+if (!function_exists('gitup_prepare_theme_release_install')) {
+  function gitup_prepare_theme_release_install($theme_stylesheet, $tag) {
+    $themes = wp_get_themes();
+    if (empty($themes[$theme_stylesheet])) {
+      return new WP_Error('gitup_theme_not_found', __('Theme not found.', 'gitup'));
+    }
+
+    $theme = $themes[$theme_stylesheet];
+    $repo_url = function_exists('gitup_get_theme_repo_url') ? gitup_get_theme_repo_url($theme) : '';
+    if ($repo_url === '') {
+      return new WP_Error('gitup_theme_repo_missing', __('No valid GitHub repository configured for this theme.', 'gitup'));
+    }
+
+    $release_package = gitup_validate_release_package_selection($repo_url, $tag);
+    if (is_wp_error($release_package)) {
+      return new WP_Error('gitup_theme_release_not_verified', __('Selected theme release could not be verified.', 'gitup'));
+    }
+
+    return [
+      'theme'      => $theme,
+      'repo_url'   => $repo_url,
+      'package'    => $release_package['package'],
+      'releases'   => $release_package['releases'],
+      'valid_tags' => $release_package['valid_tags'],
     ];
   }
 }
@@ -129,6 +205,38 @@ if (!function_exists('gitup_build_theme_package_options_filter')) {
       }
       return $options;
     };
+  }
+}
+
+if (!function_exists('gitup_get_release_action_state')) {
+  function gitup_get_release_action_state($selected_tag, $installed_version) {
+    $cmp = function_exists('gitup_compare_version_tags')
+      ? gitup_compare_version_tags($selected_tag, $installed_version)
+      : version_compare(gitup_normalize_version_tag($selected_tag), gitup_normalize_version_tag($installed_version));
+
+    $state = [
+      'row_class'         => '',
+      'button_label'      => __('Install', 'gitup'),
+      'button_class'      => 'install',
+      'confirm_message'   => __('Warning: downgrading may reintroduce bugs or incompatibilities. Make sure you know why you are installing an older release.', 'gitup'),
+      'comparison_result' => $cmp,
+    ];
+
+    if ($cmp > 0) {
+      $state['row_class'] = 'update';
+      $state['button_label'] = __('Update', 'gitup');
+      $state['button_class'] = 'update';
+    } elseif ($cmp < 0) {
+      $state['row_class'] = 'downgrade';
+      $state['button_label'] = __('Downgrade', 'gitup');
+      $state['button_class'] = 'downgrade';
+    } else {
+      $state['row_class'] = 'reinstall';
+      $state['button_label'] = __('Re-install', 'gitup');
+      $state['button_class'] = 'reinstall';
+    }
+
+    return $state;
   }
 }
 
@@ -499,20 +607,14 @@ if (!function_exists("gitup_settings_page")) {
                       $include_pre = function_exists('gitup_include_prereleases_enabled') ? gitup_include_prereleases_enabled() : (get_option('gitup_include_prereleases', '0') === '1');
                       $releases = gitup_fetch_releases($plugin['github'], $include_pre, 20);
                       $row_class = '';
+                      $default_action_state = null;
                       if (!empty($releases)) {
-                        $selected_tag = $releases[0]['tag'];
-                        $cmp = function_exists('gitup_compare_version_tags') ? gitup_compare_version_tags($selected_tag, $plugin['version']) : version_compare(gitup_normalize_version_tag($selected_tag), gitup_normalize_version_tag($plugin['version']));
-                        if ($cmp > 0) {
-                          $row_class = 'update';
-                        } elseif ($cmp < 0) {
-                          $row_class = 'downgrade';
-                        } else {
-                          $row_class = 'reinstall';
-                        }
+                        $default_action_state = gitup_get_release_action_state($releases[0]['tag'], $plugin['version']);
+                        $row_class = $default_action_state['row_class'];
                       }
                       if ($odd === 'odd') { $odd = 'even'; } else { $odd = 'odd'; }
                     ?>
-                    <?php if (!empty($releases) && (function_exists('gitup_compare_version_tags') ? gitup_compare_version_tags($releases[0]['tag'], $plugin['version']) : version_compare(gitup_normalize_version_tag($releases[0]['tag']), gitup_normalize_version_tag($plugin['version']))) > 0): ?>
+                    <?php if (!empty($releases) && !empty($default_action_state) && $default_action_state['comparison_result'] > 0): ?>
                       <tr class="has-update row <?php echo $odd . ' ' . esc_attr($row_class); ?>" data-currentVersion="<?php echo esc_html($plugin["version"]); ?>">
                     <?php else: ?>
                       <tr class="row <?php echo $odd . ' ' . esc_attr($row_class); ?>" data-currentVersion="<?php echo esc_html($plugin["version"]); ?>">
@@ -551,9 +653,10 @@ if (!function_exists("gitup_settings_page")) {
                           } else {
                               $action = admin_url('admin-post.php');
                               $plugin_file = $plugin['file'];
+                              $action_state = $default_action_state ?: gitup_get_release_action_state($releases[0]['tag'], $plugin['version']);
                               // CSRF-skydd: unik nonce per pluginrad
                               $nonce = wp_create_nonce('gitup_install_release_' . $plugin_file);
-                              echo '<form method="post" action="' . esc_url($action) . '">';
+                              echo '<form method="post" action="' . esc_url($action) . '" class="gitup-release-form" data-downgrade-confirm="' . esc_attr($action_state['confirm_message'] ?? __('Warning: downgrading may reintroduce bugs or incompatibilities. Make sure you know why you are installing an older release.', 'gitup')) . '">';
                               echo '<input type="hidden" name="action" value="gitup_install_release">';
                               echo '<input type="hidden" name="plugin" value="' . esc_attr($plugin_file) . '">';
                               echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
@@ -575,29 +678,9 @@ if (!function_exists("gitup_settings_page")) {
                                 echo '<option value="' . esc_attr($rel['tag']) . '">' . esc_html($label) . '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</option>';
                               }
                               echo '</select>';
-                              // Dynamically determine label based on selected (default) release and installed version
-                              $selected_tag = $releases[0]['tag'];
-                              $selected_cmp = function_exists('gitup_compare_version_tags') ? gitup_compare_version_tags($selected_tag, $plugin['version']) : version_compare(gitup_normalize_version_tag($selected_tag), gitup_normalize_version_tag($plugin['version']));
-                              $label = __('Install', 'gitup');
-                              if ($selected_cmp > 0) {
-                                $label = __('Update', 'gitup');
-                              } elseif ($selected_cmp < 0) {
-                                $label = __('Downgrade', 'gitup');
-                              } else {
-                                $label = __('Re-install', 'gitup');
-                              }
                               // POST: går till admin-post handler som kör WP Upgrader
-                              $btn_class = 'button install';
-                              if ($label === __('Update', 'gitup')) {
-                                $btn_class .= ' update';
-                              } elseif ($label === __('Downgrade', 'gitup')) {
-                                $btn_class .= ' downgrade';
-                              } elseif ($label === __('Re-install', 'gitup')) {
-                                $btn_class .= ' reinstall';
-                              } else {
-                                $btn_class .= ' install';
-                              }
-                              echo '<input type="submit" name="submit" class="' . esc_attr($btn_class) . '" value="' . esc_attr($label) . '">';
+                              $btn_class = 'button ' . $action_state['button_class'];
+                              echo '<input type="submit" name="submit" class="' . esc_attr($btn_class) . '" value="' . esc_attr($action_state['button_label']) . '">';
                               echo '</form>';
                             }
                           ?>
@@ -668,19 +751,13 @@ if (!function_exists("gitup_settings_page")) {
                         $include_pre = function_exists('gitup_include_prereleases_enabled') ? gitup_include_prereleases_enabled() : (get_option('gitup_include_prereleases', '0') === '1');
                         $releases = gitup_fetch_releases($theme['github'], $include_pre, 20);
                         $row_class = '';
+                        $default_action_state = null;
                         if (!empty($releases)) {
-                          $selected_tag = $releases[0]['tag'];
-                          $cmp = function_exists('gitup_compare_version_tags') ? gitup_compare_version_tags($selected_tag, $theme['version']) : version_compare(gitup_normalize_version_tag($selected_tag), gitup_normalize_version_tag($theme['version']));
-                          if ($cmp > 0) {
-                            $row_class = 'update';
-                          } elseif ($cmp < 0) {
-                            $row_class = 'downgrade';
-                          } else {
-                            $row_class = 'reinstall';
-                          }
+                          $default_action_state = gitup_get_release_action_state($releases[0]['tag'], $theme['version']);
+                          $row_class = $default_action_state['row_class'];
                         }
                         ?>
-                        <?php if (!empty($releases) && (function_exists('gitup_compare_version_tags') ? gitup_compare_version_tags($releases[0]['tag'], $theme['version']) : version_compare(gitup_normalize_version_tag($releases[0]['tag']), gitup_normalize_version_tag($theme['version']))) > 0): ?>
+                        <?php if (!empty($releases) && !empty($default_action_state) && $default_action_state['comparison_result'] > 0): ?>
                           <tr class="has-update <?php echo $odd . ' ' . esc_attr($row_class); ?>" data-currentVersion="<?php echo esc_html($theme["version"]); ?>">
                         <?php else: ?>
                           <tr class="row <?php echo $odd . ' ' . esc_attr($row_class); ?>" data-currentVersion="<?php echo esc_html($theme["version"]); ?>">
@@ -718,9 +795,10 @@ if (!function_exists("gitup_settings_page")) {
                                 } else {
                                   $action = admin_url('admin-post.php');
                                   $theme_stylesheet = $theme['stylesheet'];
+                                  $action_state = $default_action_state ?: gitup_get_release_action_state($releases[0]['tag'], $theme['version']);
                                   // CSRF-skydd: unik nonce per tema
                                   $nonce = wp_create_nonce('gitup_themes_install_release_' . $theme_stylesheet);
-                                  echo '<form method="post" action="' . esc_url($action) . '">';
+                                  echo '<form method="post" action="' . esc_url($action) . '" class="gitup-release-form" data-downgrade-confirm="' . esc_attr($action_state['confirm_message'] ?? __('Warning: downgrading may reintroduce bugs or incompatibilities. Make sure you know why you are installing an older release.', 'gitup')) . '">';
                                   echo '<input type="hidden" name="action" value="gitup_themes_install_release">';
                                   echo '<input type="hidden" name="theme" value="' . esc_attr($theme_stylesheet) . '">';
                                   echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '">';
@@ -740,29 +818,9 @@ if (!function_exists("gitup_settings_page")) {
                                   }
                                   echo '</select>';
                                   echo '<br>';
-                                  // Dynamically determine label based on selected (default) release and installed version
-                                  $selected_tag = $releases[0]['tag'];
-                                  $selected_cmp = function_exists('gitup_compare_version_tags') ? gitup_compare_version_tags($selected_tag, $theme['version']) : version_compare(gitup_normalize_version_tag($selected_tag), gitup_normalize_version_tag($theme['version']));
-                                  $label = __('Install', 'gitup');
-                                  if ($selected_cmp > 0) {
-                                    $label = __('Update', 'gitup');
-                                  } elseif ($selected_cmp < 0) {
-                                    $label = __('Downgrade', 'gitup');
-                                  } else {
-                                    $label = __('Re-install', 'gitup');
-                                  }
                                   // POST: admin-post handler för teman (Theme_Upgrader)
-                                  $btn_class = 'button';
-                                  if ($label === __('Update', 'gitup')) {
-                                    $btn_class .= ' update';
-                                  } elseif ($label === __('Downgrade', 'gitup')) {
-                                    $btn_class .= ' downgrade';
-                                  } elseif ($label === __('Re-install', 'gitup')) {
-                                    $btn_class .= ' reinstall';
-                                  } else {
-                                    $btn_class .= ' install';
-                                  }
-                                  echo '<input type="submit" name="submit" class="' . esc_attr($btn_class) . '" value="' . esc_attr($label) . '">';
+                                  $btn_class = 'button ' . $action_state['button_class'];
+                                  echo '<input type="submit" name="submit" class="' . esc_attr($btn_class) . '" value="' . esc_attr($action_state['button_label']) . '">';
                                   echo '</form>';
                                 }
                               ?>
@@ -1157,19 +1215,11 @@ add_action('admin_post_gitup_install_release', function () {
   require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
   require_once ABSPATH . 'wp-admin/includes/plugin.php';
 
-  $plugins = get_plugins();
-  if (empty($plugins[$plugin])) {
-    gitup_redirect_with_notice(__('Plugin not found.', 'gitup'));
+  $prepared = gitup_prepare_plugin_release_install($plugin, $tag);
+  if (is_wp_error($prepared)) {
+    gitup_redirect_with_notice($prepared->get_error_message());
   }
-
-  $plugin_info = $plugins[$plugin];
-  $repo_url = function_exists('gitup_get_plugin_repo_url') ? gitup_get_plugin_repo_url($plugin_info) : '';
-  if ($repo_url === '') {
-    gitup_redirect_with_notice(__('No valid GitHub repository configured for this plugin.', 'gitup'));
-  }
-
-  $release_package = gitup_get_verified_release_package_url($repo_url, $tag, 'plugin');
-  $package = $release_package['package'];
+  $package = $prepared['package'];
 
   // Använd WordPress inbyggda upgrader-API (visar status i UI)
   $skin = new Automatic_Upgrader_Skin();
@@ -1214,20 +1264,14 @@ add_action('admin_post_gitup_themes_install_release', function () {
   require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
   require_once ABSPATH . 'wp-admin/includes/theme.php';
 
-  $themes = wp_get_themes();
-  if (empty($themes[$theme_stylesheet])) {
-    gitup_redirect_with_notice(__('Theme not found.', 'gitup'));
+  $prepared = gitup_prepare_theme_release_install($theme_stylesheet, $tag);
+  if (is_wp_error($prepared)) {
+    gitup_redirect_with_notice($prepared->get_error_message());
   }
-
-  $theme = $themes[$theme_stylesheet];
-  $repo_url = function_exists('gitup_get_theme_repo_url') ? gitup_get_theme_repo_url($theme) : '';
-  if ($repo_url === '') {
-    gitup_redirect_with_notice(__('No valid GitHub repository configured for this theme.', 'gitup'));
-  }
-
-  $release_package = gitup_get_verified_release_package_url($repo_url, $tag, 'theme');
-  $package = $release_package['package'];
-  $valid_tags = $release_package['valid_tags'];
+  $theme = $prepared['theme'];
+  $repo_url = $prepared['repo_url'];
+  $package = $prepared['package'];
+  $valid_tags = $prepared['valid_tags'];
 
   // WordPress Theme_Upgrader – hanterar unzip och filkopiering
   $skin = new Automatic_Upgrader_Skin();

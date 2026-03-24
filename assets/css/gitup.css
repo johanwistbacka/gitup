@@ -98,6 +98,34 @@
 .gitup-table td.actions .button {
   white-space: nowrap;
 }
+.gitup-table td.actions .button.update {
+  border-color: #0f7a39;
+  background: #1f9d55;
+  color: #fff;
+}
+.gitup-table td.actions .button.update:hover,
+.gitup-table td.actions .button.update:focus {
+  border-color: #0c5d2c;
+  background: #178347;
+  color: #fff;
+}
+.gitup-table td.actions .button.downgrade {
+  border-color: #b32d2e;
+  background: #d63638;
+  color: #fff;
+}
+.gitup-table td.actions .button.downgrade:hover,
+.gitup-table td.actions .button.downgrade:focus {
+  border-color: #8f2526;
+  background: #b32d2e;
+  color: #fff;
+}
+.gitup-table td.actions .button.reinstall,
+.gitup-table td.actions .button.install {
+  border-color: #8c8f94;
+  background: #f6f7f7;
+  color: #2c3338;
+}
 .gitup-table td.repo a {
   font-size: 13px;
   white-space: nowrap;
