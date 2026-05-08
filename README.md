@@ -1,5 +1,5 @@
 # GitUp
-> **Version:** 2026.03.24.01
+> **Version:** 2026.05.08.01
  Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.
 
 # GitUp
@@ -127,6 +127,9 @@ Loggen hittar du i `wp-content/debug.log`.
 - Överväg att begränsa GitHub-anrop till explicita uppdateringsflöden och andra mindre prestandaförbättringar i admin.
 
 ## Changelog
+
+### 2026.05.08.01
+- Underhållsrelease utan funktionella ändringar: tagit bort lokal IDE-config (`config.codekit3`) ur repot och uppdaterat `.gitignore`.
 
 ### 2026.03.24.01
 - Skarp release efter verifierad WordPress-runda för publikt pluginrepo, privat pluginrepo, publikt tema och taggar med specialtecken.
