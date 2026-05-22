@@ -317,3 +317,186 @@ if (!function_exists('gitup_install_from_url_fetch_file')) {
         return is_string($body) ? $body : null;
     }
 }
+
+if (!function_exists('gitup_prepare_plugin_install_from_url')) {
+    /**
+     * Förbereder en plugin-installation från en GitHub-URL.
+     *
+     * Normaliserar repo-URL:n, verifierar att taggen faktiskt finns i repo:ts
+     * releases (via befintliga `gitup_validate_release_package_selection`) och
+     * härleder ett destination-slug (default = repo-namnet, sanerat med
+     * `sanitize_key`).
+     *
+     * Returnerar `WP_Error` vid ogiltig input eller overifierad tagg, annars
+     * en array med `repo_url`, `tag`, `package`, `releases`, `valid_tags` och
+     * `desired_slug`.
+     *
+     * @param string      $repo_url
+     * @param string      $tag
+     * @param string|null $desired_slug
+     * @return array|WP_Error
+     */
+    function gitup_prepare_plugin_install_from_url($repo_url, $tag, $desired_slug = null) {
+        $normalized = gitup_normalize_github_repo_url((string) $repo_url);
+        if ($normalized === '') {
+            return new WP_Error('gitup_invalid_url', __('Invalid repository URL.', 'gitup'));
+        }
+        if (!is_string($tag) || $tag === '') {
+            return new WP_Error('gitup_missing_tag', __('A release tag is required.', 'gitup'));
+        }
+
+        $validation = gitup_validate_release_package_selection($normalized, $tag);
+        if (is_wp_error($validation)) {
+            return new WP_Error(
+                'gitup_install_release_not_verified',
+                __('Selected release could not be verified against the repository tags.', 'gitup')
+            );
+        }
+
+        $slug_input = is_string($desired_slug) && $desired_slug !== ''
+            ? $desired_slug
+            : basename((string) parse_url($normalized, PHP_URL_PATH));
+        $slug = sanitize_key($slug_input);
+        if ($slug === '') {
+            return new WP_Error(
+                'gitup_invalid_slug',
+                __('Could not determine a destination directory name for the plugin.', 'gitup')
+            );
+        }
+
+        return [
+            'repo_url'     => $normalized,
+            'tag'          => $tag,
+            'package'      => $validation['package'],
+            'releases'     => $validation['releases'],
+            'valid_tags'   => $validation['valid_tags'],
+            'desired_slug' => $slug,
+        ];
+    }
+}
+
+if (!function_exists('gitup_prepare_theme_install_from_url')) {
+    /**
+     * Förbereder en tema-installation från en GitHub-URL.
+     *
+     * Samma kontrakt som plugin-varianten, men returnerar `desired_stylesheet`
+     * i stället för `desired_slug`. Den existerande `upgrader_source_selection`-
+     * hooken letar upp och döper om mappen så att den matchar stylesheet:en.
+     *
+     * @param string      $repo_url
+     * @param string      $tag
+     * @param string|null $desired_stylesheet
+     * @return array|WP_Error
+     */
+    function gitup_prepare_theme_install_from_url($repo_url, $tag, $desired_stylesheet = null) {
+        $normalized = gitup_normalize_github_repo_url((string) $repo_url);
+        if ($normalized === '') {
+            return new WP_Error('gitup_invalid_url', __('Invalid repository URL.', 'gitup'));
+        }
+        if (!is_string($tag) || $tag === '') {
+            return new WP_Error('gitup_missing_tag', __('A release tag is required.', 'gitup'));
+        }
+
+        $validation = gitup_validate_release_package_selection($normalized, $tag);
+        if (is_wp_error($validation)) {
+            return new WP_Error(
+                'gitup_install_release_not_verified',
+                __('Selected release could not be verified against the repository tags.', 'gitup')
+            );
+        }
+
+        $stylesheet_input = is_string($desired_stylesheet) && $desired_stylesheet !== ''
+            ? $desired_stylesheet
+            : basename((string) parse_url($normalized, PHP_URL_PATH));
+        $stylesheet = sanitize_key($stylesheet_input);
+        if ($stylesheet === '') {
+            return new WP_Error(
+                'gitup_invalid_stylesheet',
+                __('Could not determine a destination directory name for the theme.', 'gitup')
+            );
+        }
+
+        return [
+            'repo_url'           => $normalized,
+            'tag'                => $tag,
+            'package'            => $validation['package'],
+            'releases'           => $validation['releases'],
+            'valid_tags'         => $validation['valid_tags'],
+            'desired_stylesheet' => $stylesheet,
+        ];
+    }
+}
+
+if (!function_exists('gitup_build_plugin_install_package_options_filter')) {
+    /**
+     * Bygger ett `upgrader_package_options`-filter för förstainstallation av
+     * ett plugin via URL. Skiljer sig från den befintliga update-varianten
+     * genom att inte rensa destinationen och avbryta om mappen redan finns
+     * (vi vill inte råka skriva över ett befintligt plugin).
+     *
+     * Sätter också `hook_extra['gitup_install_from_url']` så efterföljande
+     * hooks kan se att det är en URL-installation.
+     *
+     * @param string $desired_slug Sanerat mappnamn under WP_PLUGIN_DIR.
+     * @return callable
+     */
+    function gitup_build_plugin_install_package_options_filter($desired_slug) {
+        $slug = (string) $desired_slug;
+
+        return function ($options) use ($slug) {
+            if (!is_array($options)) {
+                $options = [];
+            }
+            if (!isset($options['hook_extra']) || !is_array($options['hook_extra'])) {
+                $options['hook_extra'] = [];
+            }
+
+            $options['hook_extra']['plugin'] = $slug . '/' . $slug . '.php';
+            $options['hook_extra']['gitup_install_from_url'] = true;
+
+            if (defined('WP_PLUGIN_DIR')) {
+                $plugins_dir = trailingslashit(WP_PLUGIN_DIR);
+                $options['destination'] = trailingslashit($plugins_dir . $slug);
+                $options['destination_name'] = $slug;
+            }
+            $options['clear_destination'] = false;
+            $options['abort_if_destination_exists'] = true;
+
+            return $options;
+        };
+    }
+}
+
+if (!function_exists('gitup_build_theme_install_package_options_filter')) {
+    /**
+     * Bygger ett `upgrader_package_options`-filter för förstainstallation av
+     * ett tema via URL. Destination sätts till `get_theme_root()` och
+     * `destination_name` lämnas bort så att den befintliga
+     * `upgrader_source_selection`-hooken kan döpa om källkatalogen till
+     * önskad stylesheet.
+     *
+     * @param string $desired_stylesheet
+     * @return callable
+     */
+    function gitup_build_theme_install_package_options_filter($desired_stylesheet) {
+        $stylesheet = (string) $desired_stylesheet;
+
+        return function ($options) use ($stylesheet) {
+            if (!is_array($options)) {
+                $options = [];
+            }
+            if (!isset($options['hook_extra']) || !is_array($options['hook_extra'])) {
+                $options['hook_extra'] = [];
+            }
+
+            $options['hook_extra']['theme'] = $stylesheet;
+            $options['hook_extra']['gitup_install_from_url'] = true;
+            $options['destination'] = get_theme_root();
+            unset($options['destination_name']);
+            $options['clear_destination'] = false;
+            $options['abort_if_destination_exists'] = true;
+
+            return $options;
+        };
+    }
+}

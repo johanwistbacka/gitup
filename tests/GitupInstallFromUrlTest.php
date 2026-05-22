@@ -307,6 +307,142 @@ final class GitupInstallFromUrlTest extends GitupTestCase
         $this->assertSame('Slash Theme', $result['theme_name']);
     }
 
+    public function test_prepare_plugin_install_from_url_rejects_invalid_repo(): void
+    {
+        $result = gitup_prepare_plugin_install_from_url('not-a-url', '1.0.0');
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_invalid_url', $result->get_error_code());
+    }
+
+    public function test_prepare_plugin_install_from_url_rejects_empty_tag(): void
+    {
+        $result = gitup_prepare_plugin_install_from_url('https://github.com/owner/repo', '');
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_missing_tag', $result->get_error_code());
+    }
+
+    public function test_prepare_plugin_install_from_url_rejects_unverified_tag(): void
+    {
+        $repo = 'https://github.com/owner/repo';
+        update_option('gitup_include_prereleases', '1');
+        $this->queueRepoReleases($repo, [
+            ['tag_name' => '1.0.0', 'name' => '1.0.0', 'prerelease' => false],
+        ]);
+
+        $result = gitup_prepare_plugin_install_from_url($repo, '9.9.9');
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_install_release_not_verified', $result->get_error_code());
+    }
+
+    public function test_prepare_plugin_install_from_url_returns_package_and_auto_slug(): void
+    {
+        $repo = 'https://github.com/owner/my-plugin';
+        update_option('gitup_include_prereleases', '1');
+        $this->queueRepoReleases($repo, [
+            ['tag_name' => '1.0.0', 'name' => '1.0.0', 'prerelease' => false],
+        ]);
+
+        $result = gitup_prepare_plugin_install_from_url($repo, '1.0.0');
+
+        $this->assertFalse(is_wp_error($result));
+        $this->assertSame('https://github.com/owner/my-plugin', $result['repo_url']);
+        $this->assertSame('1.0.0', $result['tag']);
+        $this->assertSame('my-plugin', $result['desired_slug']);
+        $this->assertSame(
+            'https://codeload.github.com/owner/my-plugin/zip/refs/tags/1.0.0',
+            $result['package']
+        );
+    }
+
+    public function test_prepare_plugin_install_from_url_honors_explicit_slug(): void
+    {
+        $repo = 'https://github.com/owner/my-plugin';
+        update_option('gitup_include_prereleases', '1');
+        $this->queueRepoReleases($repo, [
+            ['tag_name' => '1.0.0', 'name' => '1.0.0', 'prerelease' => false],
+        ]);
+
+        $result = gitup_prepare_plugin_install_from_url($repo, '1.0.0', 'Custom Slug Name');
+
+        $this->assertFalse(is_wp_error($result));
+        // sanitize_key strips spaces and lowercases.
+        $this->assertSame('customslugname', $result['desired_slug']);
+    }
+
+    public function test_prepare_theme_install_from_url_rejects_invalid_repo(): void
+    {
+        $result = gitup_prepare_theme_install_from_url('not-a-url', '1.0.0');
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_invalid_url', $result->get_error_code());
+    }
+
+    public function test_prepare_theme_install_from_url_rejects_empty_tag(): void
+    {
+        $result = gitup_prepare_theme_install_from_url('https://github.com/owner/repo', '');
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_missing_tag', $result->get_error_code());
+    }
+
+    public function test_prepare_theme_install_from_url_returns_package_and_auto_stylesheet(): void
+    {
+        $repo = 'https://github.com/owner/my-theme';
+        update_option('gitup_include_prereleases', '1');
+        $this->queueRepoReleases($repo, [
+            ['tag_name' => '2.0.0', 'name' => '2.0.0', 'prerelease' => false],
+        ]);
+
+        $result = gitup_prepare_theme_install_from_url($repo, '2.0.0');
+
+        $this->assertFalse(is_wp_error($result));
+        $this->assertSame('my-theme', $result['desired_stylesheet']);
+        $this->assertSame(
+            'https://codeload.github.com/owner/my-theme/zip/refs/tags/2.0.0',
+            $result['package']
+        );
+    }
+
+    public function test_build_plugin_install_package_options_filter_sets_destination_and_hook_extra(): void
+    {
+        $filter = gitup_build_plugin_install_package_options_filter('my-plugin');
+        $options = $filter([
+            'hook_extra'      => [],
+            'destination'     => '/tmp/wrong/',
+            'clear_destination' => true,
+            'abort_if_destination_exists' => false,
+        ]);
+
+        $this->assertSame('my-plugin/my-plugin.php', $options['hook_extra']['plugin']);
+        $this->assertTrue($options['hook_extra']['gitup_install_from_url']);
+        $this->assertSame(trailingslashit(WP_PLUGIN_DIR) . 'my-plugin/', $options['destination']);
+        $this->assertSame('my-plugin', $options['destination_name']);
+        $this->assertFalse($options['clear_destination']);
+        $this->assertTrue($options['abort_if_destination_exists']);
+    }
+
+    public function test_build_theme_install_package_options_filter_sets_destination_and_hook_extra(): void
+    {
+        $filter = gitup_build_theme_install_package_options_filter('my-theme');
+        $options = $filter([
+            'hook_extra'      => [],
+            'destination'     => '/tmp/wrong/',
+            'destination_name' => 'leftover',
+            'clear_destination' => true,
+            'abort_if_destination_exists' => false,
+        ]);
+
+        $this->assertSame('my-theme', $options['hook_extra']['theme']);
+        $this->assertTrue($options['hook_extra']['gitup_install_from_url']);
+        $this->assertSame(get_theme_root(), $options['destination']);
+        $this->assertFalse(isset($options['destination_name']));
+        $this->assertFalse($options['clear_destination']);
+        $this->assertTrue($options['abort_if_destination_exists']);
+    }
+
     private function queueContentsListing(string $ownerRepo, string $tag, array $files): void
     {
         $url = 'https://api.github.com/repos/' . $ownerRepo . '/contents?ref=' . rawurlencode($tag);
@@ -324,6 +460,16 @@ final class GitupInstallFromUrlTest extends GitupTestCase
             'response' => ['code' => 200],
             'headers'  => [],
             'body'     => $content,
+        ]);
+    }
+
+    private function queueRepoReleases(string $repoUrl, array $releases): void
+    {
+        $apiUrl = 'https://api.github.com/repos/' . trim((string) parse_url($repoUrl, PHP_URL_PATH), '/') . '/releases?per_page=50';
+        gitup_test_queue_http_response($apiUrl, [
+            'response' => ['code' => 200],
+            'headers'  => [],
+            'body'     => json_encode($releases),
         ]);
     }
 }

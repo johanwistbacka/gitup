@@ -174,6 +174,13 @@ function sanitize_text_field($value) {
     return is_scalar($value) ? trim((string) $value) : '';
 }
 
+function sanitize_key($key) {
+    if (!is_scalar($key)) {
+        return '';
+    }
+    return preg_replace('/[^a-z0-9_\-]/', '', strtolower((string) $key));
+}
+
 function wp_unslash($value) {
     return $value;
 }
