@@ -2,7 +2,7 @@
 /*
 Plugin Name: GitUp
 Description: Handles automatic updates for GitHub-hosted plugins and themes.
-Version: 2026.05.08.01
+Version: 2026.05.22.01-beta
 Author: Johan Wistbacka
 Plugin URI: https://github.com/johanwistbacka/gitup
 Update URI: https://github.com/johanwistbacka/gitup

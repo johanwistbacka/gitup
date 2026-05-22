@@ -8,7 +8,7 @@
 <h1 id="gitup">GitUp</h1>
 
 <blockquote>
-<p><strong>Version:</strong> 2026.05.08.01
+<p><strong>Version:</strong> 2026.05.22.01-beta
 Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.</p>
 </blockquote>
 
@@ -201,6 +201,18 @@ Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.</p>
 </ul>
 
 <h2 id="changelog">Changelog</h2>
+
+<h3 id="2026.05.22.01-beta">2026.05.22.01-beta</h3>
+
+<ul>
+<li>Ny flik <strong>Install from URL</strong> under Verktyg → GitUp som installerar plugin eller tema direkt från en GitHub-URL.</li>
+<li>Två-stegsflöde: paste URL → inspect (visar repo, vald tagg, detekterad typ, releaser) → confirm (separata "Install as plugin"/"Install as theme"-knappar).</li>
+<li>Typdetektering via GitHub Contents-API: kollar <code>style.css</code> för <code>Theme Name:</code> och PHP-filer i roten för <code>Plugin Name:</code> (prefererar <code>&lt;repo&gt;.php</code> och <code>index.php</code>).</li>
+<li>Notis efter lyckad install om den nyinstallerade komponenten saknar <code>Update URI</code>-header — då kan GitUp inte auto-uppdatera den senare utan en manuell header-fix.</li>
+<li>Härdning: capability-gating (<code>install_plugins</code>/<code>install_themes</code>), respekt för <code>DISALLOW_FILE_MODS</code>, nonce binder repo-URL + tagg + typ, host-låst till <code>github.com</code>.</li>
+<li>Rate-limit-meddelanden separerade från auth-fel i UI:t.</li>
+<li>69 nya regressionstester (110/110 gröna).</li>
+</ul>
 
 <h3 id="2026.05.08.01">2026.05.08.01</h3>
 

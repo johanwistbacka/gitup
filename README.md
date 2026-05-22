@@ -1,5 +1,5 @@
 # GitUp
-> **Version:** 2026.05.08.01
+> **Version:** 2026.05.22.01-beta
  Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.
 
 # GitUp
@@ -154,6 +154,15 @@ Loggen hittar du i `wp-content/debug.log`.
 - Överväg att begränsa GitHub-anrop till explicita uppdateringsflöden och andra mindre prestandaförbättringar i admin.
 
 ## Changelog
+
+### 2026.05.22.01-beta
+- Ny flik **Install from URL** under Verktyg → GitUp som installerar plugin eller tema direkt från en GitHub-URL.
+- Två-stegsflöde: paste URL → inspect (visar repo, vald tagg, detekterad typ, releaser) → confirm (separata "Install as plugin"/"Install as theme"-knappar).
+- Typdetektering via GitHub Contents-API: kollar `style.css` för `Theme Name:` och PHP-filer i roten för `Plugin Name:` (prefererar `<repo>.php` och `index.php`).
+- Notis efter lyckad install om den nyinstallerade komponenten saknar `Update URI`-header — då kan GitUp inte auto-uppdatera den senare utan en manuell header-fix.
+- Härdning: capability-gating (`install_plugins`/`install_themes`), respekt för `DISALLOW_FILE_MODS`, nonce binder repo-URL + tagg + typ, host-låst till `github.com`.
+- Rate-limit-meddelanden separerade från auth-fel i UI:t.
+- 69 nya regressionstester (110/110 gröna).
 
 ### 2026.05.08.01
 - Underhållsrelease utan funktionella ändringar: tagit bort lokal IDE-config (`config.codekit3`) ur repot och uppdaterat `.gitignore`.
