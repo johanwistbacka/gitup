@@ -281,7 +281,13 @@ if (!function_exists('gitup_detect_repo_component_type')) {
 if (!function_exists('gitup_install_from_url_fetch_file')) {
     /**
      * Intern hjälpare: hämtar råinnehåll för en enskild fil i ett repo
-     * via Contents-API:t med `Accept: application/vnd.github.raw`.
+     * via GitHub Contents-API:t.
+     *
+     * Anropet använder standard-`Accept: application/vnd.github+json` och
+     * dekoderar `content`-fältet (base64) från svaret. Det är robustare än
+     * att försöka be om `application/vnd.github.raw` direkt — wp_remote_get
+     * skickar inte alltid Accept-headern vidare exakt, vilket annars kan ge
+     * en JSON-envelope som regexet inte matchar.
      *
      * Returnerar fil-innehållet vid 200, annars `null` (callern tolkar
      * "kunde inte avgöra" som "header saknas").
@@ -297,24 +303,49 @@ if (!function_exists('gitup_install_from_url_fetch_file')) {
             $url .= '?ref=' . rawurlencode($tag);
         }
 
-        $headers = gitup_github_headers();
-        $headers['Accept'] = 'application/vnd.github.raw';
-
         $response = wp_remote_get($url, [
-            'headers'     => $headers,
+            'headers'     => gitup_github_headers(),
             'timeout'     => 15,
             'redirection' => 3,
         ]);
 
         if (is_wp_error($response)) {
+            if (function_exists('gitup_log')) {
+                gitup_log('install-from-url: file fetch wp_error for ' . $url);
+            }
             return null;
         }
-        if ((int) wp_remote_retrieve_response_code($response) !== 200) {
+
+        $code = (int) wp_remote_retrieve_response_code($response);
+        if ($code !== 200) {
+            if (function_exists('gitup_log')) {
+                gitup_log('install-from-url: file fetch http ' . $code . ' for ' . $url);
+            }
             return null;
         }
 
         $body = wp_remote_retrieve_body($response);
-        return is_string($body) ? $body : null;
+        if (!is_string($body) || $body === '') {
+            return null;
+        }
+
+        $data = json_decode($body, true);
+        if (!is_array($data)) {
+            // Vissa proxies eller helt råa svar (om GitHub honorerar Accept: raw)
+            // kommer in som plain text. Returnera body som det är då.
+            return $body;
+        }
+
+        $encoding = isset($data['encoding']) ? (string) $data['encoding'] : '';
+        $content  = isset($data['content']) ? (string) $data['content'] : '';
+
+        if ($encoding === 'base64' && $content !== '') {
+            $decoded = base64_decode(preg_replace('/\s+/', '', $content), true);
+            return is_string($decoded) ? $decoded : null;
+        }
+
+        // Okänd encoding men content finns — returnera som det är, regex får testa.
+        return $content !== '' ? $content : null;
     }
 }
 
@@ -593,8 +624,20 @@ add_action('admin_post_gitup_install_from_url_preview', function () {
 
     $result = gitup_run_install_from_url_preview($url);
     if (is_wp_error($result)) {
+        if (function_exists('gitup_log')) {
+            gitup_log('install-from-url preview failed: ' . $result->get_error_code() . ' for input "' . $url . '"');
+        }
+        // Bevara användarens råa input så att fältet inte töms vid felmeddelandet.
+        set_transient(
+            gitup_install_from_url_preview_transient_key(),
+            ['url_input' => $url, 'error' => $result->get_error_message()],
+            15 * MINUTE_IN_SECONDS
+        );
         gitup_redirect_with_notice($result->get_error_message(), '0', ['tab' => 'install']);
     }
+
+    // Bevara den ursprungliga inmatningen så att fältet kan re-populeras.
+    $result['url_input'] = $url;
 
     set_transient(
         gitup_install_from_url_preview_transient_key(),
@@ -632,6 +675,8 @@ if (!function_exists('gitup_render_install_from_url_tab')) {
         $action_url    = admin_url('admin-post.php');
         $preview_nonce = wp_create_nonce('gitup_install_from_url_preview');
         $reset_url     = gitup_get_settings_page_url(['tab' => 'install', 'reset' => '1']);
+        $url_value     = is_array($preview) && !empty($preview['url_input']) ? (string) $preview['url_input'] : '';
+        $has_full_preview = is_array($preview) && !empty($preview['repo_url']) && !empty($preview['tag_used']);
         ?>
         <div class="gitup-install-from-url" style="margin-top:20px;">
           <h2><?php esc_html_e('Install plugin or theme from GitHub URL', 'gitup'); ?></h2>
@@ -642,14 +687,17 @@ if (!function_exists('gitup_render_install_from_url_tab')) {
             <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($preview_nonce); ?>">
             <p>
               <label for="gitup_install_url"><strong><?php esc_html_e('GitHub URL', 'gitup'); ?></strong></label><br>
-              <input type="text" id="gitup_install_url" name="gitup_install_url" placeholder="https://github.com/owner/repo" class="regular-text" required>
+              <input type="text" id="gitup_install_url" name="gitup_install_url" value="<?php echo esc_attr($url_value); ?>" placeholder="https://github.com/owner/repo" class="regular-text" required>
             </p>
             <p>
               <button type="submit" class="button button-primary"><?php esc_html_e('Inspect repository', 'gitup'); ?></button>
+              <?php if ($url_value !== '') : ?>
+                <a href="<?php echo esc_url($reset_url); ?>" class="button" style="margin-left:8px;"><?php esc_html_e('Clear', 'gitup'); ?></a>
+              <?php endif; ?>
             </p>
           </form>
 
-          <?php if (is_array($preview)) : ?>
+          <?php if ($has_full_preview) : ?>
             <hr style="margin:24px 0;">
             <h3><?php esc_html_e('Inspection result', 'gitup'); ?></h3>
             <table class="form-table">

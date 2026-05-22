@@ -518,6 +518,25 @@ final class GitupInstallFromUrlTest extends GitupTestCase
         $this->assertStringContainsString('admin-post.php', $html);
     }
 
+    public function test_render_tab_repopulates_url_field_when_preview_transient_has_url_input(): void
+    {
+        set_transient(gitup_install_from_url_preview_transient_key(), [
+            'url_input' => 'https://github.com/owner/some-plugin',
+            'repo_url'  => 'https://github.com/owner/some-plugin',
+            'tag_used'  => '1.0.0',
+            'releases'  => [],
+            'type'      => 'plugin',
+            'plugin_name' => 'Some Plugin',
+            'theme_name'  => null,
+        ]);
+
+        ob_start();
+        gitup_render_install_from_url_tab();
+        $html = ob_get_clean();
+
+        $this->assertStringContainsString('value="https://github.com/owner/some-plugin"', $html);
+    }
+
     public function test_render_tab_shows_inspection_result_when_preview_transient_set(): void
     {
         set_transient(gitup_install_from_url_preview_transient_key(), [
@@ -554,7 +573,11 @@ final class GitupInstallFromUrlTest extends GitupTestCase
         gitup_test_queue_http_response($url, [
             'response' => ['code' => 200],
             'headers'  => [],
-            'body'     => $content,
+            'body'     => json_encode([
+                'type'     => 'file',
+                'encoding' => 'base64',
+                'content'  => chunk_split(base64_encode($content), 60, "\n"),
+            ]),
         ]);
     }
 
