@@ -1,5 +1,5 @@
 # GitUp
-> **Version:** 2026.05.22.01-beta
+> **Version:** 2026.05.22.02-beta
  Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.
 
 # GitUp
@@ -154,6 +154,10 @@ Loggen hittar du i `wp-content/debug.log`.
 - Överväg att begränsa GitHub-anrop till explicita uppdateringsflöden och andra mindre prestandaförbättringar i admin.
 
 ## Changelog
+
+### 2026.05.22.02-beta
+- Slimmar ned preview-transientet (install-from-URL) till `tag` + `prerelease` per release så att payload:en inte trycks bort av object caches med max-value-limit.
+- Lägger till `gitup_log()`-spår runt `set_transient`/`get_transient` i preview-flödet för enklare stage-debug.
 
 ### 2026.05.22.01-beta
 - Ny flik **Install from URL** under Verktyg → GitUp som installerar plugin eller tema direkt från en GitHub-URL.

@@ -8,7 +8,7 @@
 <h1 id="gitup">GitUp</h1>
 
 <blockquote>
-<p><strong>Version:</strong> 2026.05.22.01-beta
+<p><strong>Version:</strong> 2026.05.22.02-beta
 Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.</p>
 </blockquote>
 
@@ -201,6 +201,13 @@ Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.</p>
 </ul>
 
 <h2 id="changelog">Changelog</h2>
+
+<h3 id="2026.05.22.02-beta">2026.05.22.02-beta</h3>
+
+<ul>
+<li>Slimmar ned preview-transientet (install-from-URL) till <code>tag</code> + <code>prerelease</code> per release så att payload:en inte trycks bort av object caches med max-value-limit.</li>
+<li>Lägger till <code>gitup_log()</code>-spår runt <code>set_transient</code>/<code>get_transient</code> i preview-flödet för enklare stage-debug.</li>
+</ul>
 
 <h3 id="2026.05.22.01-beta">2026.05.22.01-beta</h3>
 
