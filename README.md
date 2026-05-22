@@ -1,5 +1,5 @@
 # GitUp
-> **Version:** 2026.05.22.02-beta
+> **Version:** 2026.05.22.03-beta
  Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.
 
 # GitUp
@@ -154,6 +154,9 @@ Loggen hittar du i `wp-content/debug.log`.
 - Överväg att begränsa GitHub-anrop till explicita uppdateringsflöden och andra mindre prestandaförbättringar i admin.
 
 ## Changelog
+
+### 2026.05.22.03-beta
+- **Fixar svenska översättningen:** `languages/sv_SE.mo` har aldrig kompilerats om sedan rebrandingen från `rg-git-updater` till `gitup`, vilket gjort att alla installerade sajter visat "RG GitUp" i menyn, sidtiteln och plugin-radens namn trots att källkoden sedan länge säger "GitUp". `.po`-filen dedupliceras och `.mo` regenereras från den så att översättningen blir konsekvent med koden.
 
 ### 2026.05.22.02-beta
 - Slimmar ned preview-transientet (install-from-URL) till `tag` + `prerelease` per release så att payload:en inte trycks bort av object caches med max-value-limit.

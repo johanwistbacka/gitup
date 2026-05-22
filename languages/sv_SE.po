@@ -15,8 +15,10 @@ msgstr ""
 "X-Poedit-Basepath: ..\n"
 "X-Poedit-SearchPath-0: .\n"
 
+#. #-#-#-#-#  sv_SE.po (GitUp 2026.03.24.01)  #-#-#-#-#
 #. Plugin Name of the plugin
-#: index.php
+#: index.php options.php:254 options.php:383 site-health.php:19
+#: site-health.php:33 site-health.php:46
 msgid "GitUp"
 msgstr "GitUp"
 
@@ -44,13 +46,10 @@ msgstr "Inställningar"
 msgid "GitUp – GitHub Updates"
 msgstr "GitUp – GitHub Updates"
 
-#: options.php:254 options.php:383
-msgid "GitUp"
-msgstr "GitUp"
-
 #: options.php:387
 msgid "Manage GitHub-hosted plugin and theme updates for your WordPress site."
-msgstr "Hantera plugin- och temauppdateringar på GitHub för din WordPress-webbplats."
+msgstr ""
+"Hantera plugin- och temauppdateringar på GitHub för din WordPress-webbplats."
 
 #: options.php:389
 msgid "Updates"
@@ -226,7 +225,8 @@ msgstr "GitHub-token utgången"
 
 #: options.php:965
 msgid "GitHub does not provide an expiry date for this token type."
-msgstr "Det finns inget utgångsdatum för denna typ av GitHub-token från GitHub."
+msgstr ""
+"Det finns inget utgångsdatum för denna typ av GitHub-token från GitHub."
 
 #: options.php:977
 msgid "Allow pre-releases"
@@ -309,17 +309,19 @@ msgstr "Din GitHub-token på \"%s\" verkar vara ogiltig eller har löpt ut."
 
 #: gitup-updater.php:518
 #, php-format
-msgid "Action: <a href=\"%s\">Go to Tools → GitHub Updates and update the token.</a>"
+msgid ""
+"Action: <a href=\"%s\">Go to Tools → GitHub Updates and update the token.</a>"
 msgstr ""
-"Lösning: <a href=\"%s\">Gå till verktyg > GitHub Updates och uppdatera till en "
-"aktuell GitHub-token.</a>"
+"Lösning: <a href=\"%s\">Gå till verktyg > GitHub Updates och uppdatera till "
+"en aktuell GitHub-token.</a>"
 
 #: gitup-updater.php:521
 msgid ""
-"Tip: Also verify the scopes (e.g. repo) if you need access to private repositories."
+"Tip: Also verify the scopes (e.g. repo) if you need access to private "
+"repositories."
 msgstr ""
-"Tips: Kontrollera även rättigheterna (t.ex. repository) om du behöver åtkomst till "
-"privata repositories."
+"Tips: Kontrollera även rättigheterna (t.ex. repository) om du behöver "
+"åtkomst till privata repositories."
 
 #: gitup-updater.php:522
 msgid "Last checked:"
@@ -336,11 +338,11 @@ msgstr "Kan inte skapa temporär fil."
 #: gitup-updater.php:601
 #, php-format
 msgid ""
-"GitHub did not return a ZIP (Content-Type: %s). Check token/access and the release "
-"tag."
+"GitHub did not return a ZIP (Content-Type: %s). Check token/access and the "
+"release tag."
 msgstr ""
-"GitHub returnerade inte en ZIP (Content-Type: %s). Kontrollera GitHub-token/åtkomst "
-"och release-taggen."
+"GitHub returnerade inte en ZIP (Content-Type: %s). Kontrollera GitHub-token/"
+"åtkomst och release-taggen."
 
 #: gitup-updater.php:607
 #, php-format
@@ -363,15 +365,13 @@ msgstr "GitHub-token-status"
 msgid "No GitHub token set"
 msgstr "Ingen GitHub-token angiven"
 
-#: site-health.php:19 site-health.php:33 site-health.php:46
-msgid "GitUp"
-msgstr "GitUp"
-
 #: site-health.php:22
-msgid "Public repositories will work, but private repositories require a valid token."
+msgid ""
+"Public repositories will work, but private repositories require a valid "
+"token."
 msgstr ""
-"Offentliga repositories fungerar utan problem, men för privata repositories behövs en "
-"giltig GitHub-token."
+"Offentliga repositories fungerar utan problem, men för privata repositories "
+"behövs en giltig GitHub-token."
 
 #: site-health.php:23 site-health.php:210
 msgid "Go to settings"
@@ -382,9 +382,12 @@ msgid "GitHub token has not been verified recently"
 msgstr "GitHub-token har inte verifierats på länge"
 
 #: site-health.php:36
-msgid "Your token has not been verified in the last 30 days. Visit settings to re-test."
+msgid ""
+"Your token has not been verified in the last 30 days. Visit settings to re-"
+"test."
 msgstr ""
-"Din GitHub-token har inte verifierats på 30 dagar. Besök inställningar för att testa."
+"Din GitHub-token har inte verifierats på 30 dagar. Besök inställningar för "
+"att testa."
 
 #: site-health.php:37
 msgid "Re-test token"
@@ -418,24 +421,25 @@ msgstr "Ingen GitHub-token sparad"
 
 #: site-health.php:150
 msgid ""
-"No GitHub token saved. Private repositories and higher API rate limits require a "
-"token."
+"No GitHub token saved. Private repositories and higher API rate limits "
+"require a token."
 msgstr ""
-"Ingen GitHub-token sparad. Privata repositories och högre API-gränser kräver en "
-"GitHub-token."
+"Ingen GitHub-token sparad. Privata repositories och högre API-gränser kräver "
+"en GitHub-token."
 
 #: site-health.php:153
 msgid "GitHub token verification is old or missing. Please verify your token."
 msgstr ""
-"Verifieringen av GitHub-token är gammal eller saknas. Vänligen verifiera din GitHub-"
-"token."
+"Verifieringen av GitHub-token är gammal eller saknas. Vänligen verifiera din "
+"GitHub-token."
 
 #: site-health.php:157
 msgid ""
-"No recent release info could be loaded from GitHub. Check your token and network."
+"No recent release info could be loaded from GitHub. Check your token and "
+"network."
 msgstr ""
-"Ingen aktuell release-information kunde hämtas från GitHub. Kontrollera din GitHub-"
-"token och nätverksanslutning."
+"Ingen aktuell release-information kunde hämtas från GitHub. Kontrollera din "
+"GitHub-token och nätverksanslutning."
 
 #: site-health.php:179
 #, php-format

@@ -8,7 +8,7 @@
 <h1 id="gitup">GitUp</h1>
 
 <blockquote>
-<p><strong>Version:</strong> 2026.05.22.02-beta
+<p><strong>Version:</strong> 2026.05.22.03-beta
 Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.</p>
 </blockquote>
 
@@ -201,6 +201,12 @@ Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.</p>
 </ul>
 
 <h2 id="changelog">Changelog</h2>
+
+<h3 id="2026.05.22.03-beta">2026.05.22.03-beta</h3>
+
+<ul>
+<li><strong>Fixar svenska översättningen:</strong> <code>languages/sv_SE.mo</code> har aldrig kompilerats om sedan rebrandingen från <code>rg-git-updater</code> till <code>gitup</code>, vilket gjort att alla installerade sajter visat "RG GitUp" i menyn, sidtiteln och plugin-radens namn trots att källkoden sedan länge säger "GitUp". <code>.po</code>-filen dedupliceras och <code>.mo</code> regenereras från den så att översättningen blir konsekvent med koden.</li>
+</ul>
 
 <h3 id="2026.05.22.02-beta">2026.05.22.02-beta</h3>
 
