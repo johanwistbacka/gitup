@@ -363,3 +363,4 @@ function gitup_test_http_call_count(string $url): int {
 require_once dirname(__DIR__) . '/gitup-updater.php';
 require_once dirname(__DIR__) . '/options.php';
 require_once dirname(__DIR__) . '/site-health.php';
+require_once dirname(__DIR__) . '/install-from-url.php';
