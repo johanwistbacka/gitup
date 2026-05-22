@@ -907,11 +907,36 @@ add_action('admin_post_gitup_install_from_url_preview', function () {
     // Bevara den ursprungliga inmatningen så att fältet kan re-populeras.
     $result['url_input'] = $url;
 
-    set_transient(
+    // Slimma releases — vi använder bara tag och prerelease i renderaren.
+    // Hela release-arrayen (med body/changelog) kan annars blåsa upp transientet
+    // till hundratals KB och tystna mot en object cache med max-value-limit.
+    if (isset($result['releases']) && is_array($result['releases'])) {
+        $result['releases'] = array_map(
+            static function ($release) {
+                return [
+                    'tag'        => isset($release['tag']) ? (string) $release['tag'] : '',
+                    'prerelease' => !empty($release['prerelease']),
+                ];
+            },
+            $result['releases']
+        );
+    }
+
+    $set_ok = set_transient(
         gitup_install_from_url_preview_transient_key(),
         $result,
         15 * MINUTE_IN_SECONDS
     );
+
+    if (function_exists('gitup_log')) {
+        gitup_log(sprintf(
+            'install-from-url preview: set_transient returned %s, releases=%d, repo=%s, tag=%s',
+            $set_ok ? 'true' : 'false',
+            isset($result['releases']) ? count((array) $result['releases']) : 0,
+            (string) ($result['repo_url'] ?? ''),
+            (string) ($result['tag_used'] ?? '')
+        ));
+    }
 
     wp_safe_redirect(gitup_get_settings_page_url(['tab' => 'install', 'previewed' => '1']));
     exit;
@@ -941,6 +966,13 @@ if (!function_exists('gitup_render_install_from_url_tab')) {
         }
 
         $preview = get_transient(gitup_install_from_url_preview_transient_key());
+        if (function_exists('gitup_log') && !empty($_GET['previewed'])) {
+            gitup_log(sprintf(
+                'install-from-url render: get_transient returned %s on previewed=1 page load (key=%s)',
+                is_array($preview) ? ('array with keys [' . implode(',', array_keys($preview)) . ']') : var_export($preview, true),
+                gitup_install_from_url_preview_transient_key()
+            ));
+        }
         $action_url    = admin_url('admin-post.php');
         $preview_nonce = wp_create_nonce('gitup_install_from_url_preview');
         $reset_url     = gitup_get_settings_page_url(['tab' => 'install', 'reset' => '1']);
