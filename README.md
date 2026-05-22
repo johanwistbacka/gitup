@@ -18,6 +18,7 @@ En WordPress-plugin som hanterar **automatiska uppdateringar** för plugins och 
 - ✅ **Förhandsreleaser (valfritt)** – Kan inkludera prereleases (beta/rc) i både UI och automatiska uppdateringar.
 - 📧 **E-postvarning** – Skickar mail till admin om token blir ogiltig (max en gång per dygn).
 - 🟢 **Statusindikatorer** – Visar senast verifierad tid och när token uppdaterades direkt i admin.
+- 🚀 **Installation från GitHub-URL** – Inspektera ett okänt GitHub-repo och installera det som plugin eller tema direkt från en URL.
 
 ## Installation
 
@@ -97,6 +98,32 @@ På inställningssidan visas en tabell med:
 - Senaste release (hämtad från GitHub)
 - Dropdown för att välja tag
 - **Installera-knapp** för att köra WP Upgrader direkt
+
+## Installation från GitHub-URL
+
+GitUp kan även installera plugin eller tema direkt från en GitHub-URL för komponenter som inte redan är installerade. Användbart för:
+
+- första installationen av ett tredjeparts plugin eller tema som distribueras via GitHub
+- migration från en gammal plugin-identitet till en ny (t.ex. namn- eller repobyte)
+- återinstallation efter en avaktivering
+
+### Flödet
+
+1. Gå till **Verktyg → GitUp → Install from URL**.
+2. Klistra in en GitHub-URL (eller bara `owner/repo`). En tagg kan ingå i URL:en (`/tree/<tag>`, `/releases/tag/<tag>` eller `/archive/refs/tags/<tag>.zip`) — annars används senaste release automatiskt.
+3. Klicka **Inspect repository**. GitUp hämtar releases-listan och inspekterar repo:t vid vald tagg via GitHub Contents-API:t för att avgöra om det är ett plugin, ett tema, båda eller varken-eller.
+4. Klicka **Install as plugin** eller **Install as theme**. Vid `both` (både `Plugin Name:`- och `Theme Name:`-header hittades) visas båda knapparna.
+
+### Vad som verifieras
+
+- URL:en måste peka på `github.com` eller `www.github.com`. SSH-URL:er, gist, raw och enterprise-hosts avvisas direkt.
+- Vald tagg måste finnas i repo:ts releases-lista (samma server-side-validering som vid manuell installation av befintligt plugin/tema).
+- Capability gating: `install_plugins` för plugin, `install_themes` för tema. `DISALLOW_FILE_MODS` blockerar funktionen helt med ett tydligt felmeddelande.
+- Nonce binder repo-URL + tagg + typ så att dolda formulärfält inte kan manipuleras.
+
+### Efter installation
+
+GitUp förlitar sig helt på `Update URI`-headern (eller `ThemeURI` som fallback för teman) för att hantera framtida uppdateringar — det finns ingen sidoregistrering. Saknas headern visas en notis efter installationen som påminner om att lägga till den i komponentens huvudfil, annars kan GitUp inte auto-uppdatera den senare.
 
 ## Loggning & Felsökning
 

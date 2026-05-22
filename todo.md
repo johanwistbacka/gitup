@@ -19,9 +19,6 @@
   Kontrollera särskilt upgrader-hooks, admin-UI och att GitUps Site Health-tester faktiskt syns tydligt under `Tools -> Site Health -> Status`.
 
 ## Senare förbättringar
-- [ ] Lägg till stöd för installation från GitHub-URL.
-  Gör det möjligt att installera plugin eller tema direkt från en GitHub-URL, med server-side validering av repo, korrekt pakethämtning och tydlig hantering av måltyp.
-
 - [ ] Begränsa GitHub-anrop till explicita uppdateringsflöden.
   Utforska att bara göra GitHub-anrop vid manuell uppdatering i GitUp eller när WordPress självt kör sina ordinarie update checks, i stället för att belasta vanliga adminvyer i onödan.
 

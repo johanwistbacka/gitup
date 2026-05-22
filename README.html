@@ -105,6 +105,38 @@ Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.</p>
 <li><strong>Installera-knapp</strong> för att köra WP Upgrader direkt</li>
 </ul>
 
+<h2 id="installationfrångithuburl">Installation från GitHub-URL</h2>
+
+<p>GitUp kan även installera plugin eller tema direkt från en GitHub-URL för komponenter som inte redan är installerade. Användbart för:</p>
+
+<ul>
+<li>första installationen av ett tredjeparts plugin eller tema som distribueras via GitHub</li>
+<li>migration från en gammal plugin-identitet till en ny (t.ex. namn- eller repobyte)</li>
+<li>återinstallation efter en avaktivering</li>
+</ul>
+
+<h3 id="flödet">Flödet</h3>
+
+<ol>
+<li>Gå till <strong>Verktyg → GitUp → Install from URL</strong>.</li>
+<li>Klistra in en GitHub-URL (eller bara <code>owner/repo</code>). En tagg kan ingå i URL:en (<code>/tree/&lt;tag&gt;</code>, <code>/releases/tag/&lt;tag&gt;</code> eller <code>/archive/refs/tags/&lt;tag&gt;.zip</code>) — annars används senaste release automatiskt.</li>
+<li>Klicka <strong>Inspect repository</strong>. GitUp hämtar releases-listan och inspekterar repo:t vid vald tagg via GitHub Contents-API:t för att avgöra om det är ett plugin, ett tema, båda eller varken-eller.</li>
+<li>Klicka <strong>Install as plugin</strong> eller <strong>Install as theme</strong>. Vid <code>both</code> (både <code>Plugin Name:</code>- och <code>Theme Name:</code>-header hittades) visas båda knapparna.</li>
+</ol>
+
+<h3 id="vadsomverifieras">Vad som verifieras</h3>
+
+<ul>
+<li>URL:en måste peka på <code>github.com</code> eller <code>www.github.com</code>. SSH-URL:er, gist, raw och enterprise-hosts avvisas direkt.</li>
+<li>Vald tagg måste finnas i repo:ts releases-lista (samma server-side-validering som vid manuell installation av befintligt plugin/tema).</li>
+<li>Capability gating: <code>install_plugins</code> för plugin, <code>install_themes</code> för tema. <code>DISALLOW_FILE_MODS</code> blockerar funktionen helt med ett tydligt felmeddelande.</li>
+<li>Nonce binder repo-URL + tagg + typ så att dolda formulärfält inte kan manipuleras.</li>
+</ul>
+
+<h3 id="efterinstallation">Efter installation</h3>
+
+<p>GitUp förlitar sig helt på <code>Update URI</code>-headern (eller <code>ThemeURI</code> som fallback för teman) för att hantera framtida uppdateringar — det finns ingen sidoregistrering. Saknas headern visas en notis efter installationen som påminner om att lägga till den i komponentens huvudfil, annars kan GitUp inte auto-uppdatera den senare.</p>
+
 <h2 id="loggningfelsökning">Loggning &amp; Felsökning</h2>
 
 <p>När <code>WP_DEBUG</code> är på loggar tillägget:</p>
