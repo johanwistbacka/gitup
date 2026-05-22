@@ -186,10 +186,23 @@ if (!function_exists('gitup_detect_repo_component_type')) {
                 __('Repository or tag could not be found on GitHub.', 'gitup')
             );
         }
-        if ($code === 401 || $code === 403) {
+        if ($code === 403) {
+            $body = (string) wp_remote_retrieve_body($response);
+            if ($body !== '' && stripos($body, 'rate limit') !== false) {
+                return new WP_Error(
+                    'gitup_detect_rate_limited',
+                    __('GitHub API rate limit reached. Configure a GitHub token in Settings or wait until the limit resets.', 'gitup')
+                );
+            }
             return new WP_Error(
                 'gitup_detect_auth',
-                __('GitHub returned an authentication or rate-limit error.', 'gitup')
+                __('GitHub returned an authentication error.', 'gitup')
+            );
+        }
+        if ($code === 401) {
+            return new WP_Error(
+                'gitup_detect_auth',
+                __('GitHub returned an authentication error.', 'gitup')
             );
         }
         if ($code < 200 || $code >= 300) {
@@ -651,6 +664,48 @@ if (!function_exists('gitup_resolve_install_from_url_confirm_request')) {
     }
 }
 
+if (!function_exists('gitup_install_from_url_can_install')) {
+    /**
+     * Centraliserad capability- och DISALLOW_FILE_MODS-koll för install-from-URL.
+     *
+     * `$type` accepterar `'plugin'`, `'theme'` eller `'any'`. Det senare
+     * används av preview-steget innan vi vet vilken typ användaren kommer
+     * att välja — det räcker då med att minst en av install_plugins eller
+     * install_themes finns.
+     *
+     * Returnerar `true` om åtgärden får utföras, annars `WP_Error` med en
+     * felkod som handlern kan logga och skicka vidare till användaren.
+     *
+     * @param string $type
+     * @return true|WP_Error
+     */
+    function gitup_install_from_url_can_install($type) {
+        if (defined('DISALLOW_FILE_MODS') && DISALLOW_FILE_MODS) {
+            return new WP_Error(
+                'gitup_disallow_file_mods',
+                __('File modifications are disabled on this site (DISALLOW_FILE_MODS).', 'gitup')
+            );
+        }
+
+        if ($type === 'plugin') {
+            $allowed = current_user_can('install_plugins');
+        } elseif ($type === 'theme') {
+            $allowed = current_user_can('install_themes');
+        } else {
+            $allowed = current_user_can('install_plugins') || current_user_can('install_themes');
+        }
+
+        if (!$allowed) {
+            return new WP_Error(
+                'gitup_install_forbidden',
+                __('You do not have permission to install this component.', 'gitup')
+            );
+        }
+
+        return true;
+    }
+}
+
 if (!function_exists('gitup_install_from_url_check_update_uri_header')) {
     /**
      * Kollar om en nyinstallerad komponent (plugin eller tema) har en
@@ -724,17 +779,12 @@ add_action('admin_post_gitup_install_from_url_confirm', function () {
         ? sanitize_key(wp_unslash($_POST['gitup_install_type']))
         : '';
 
-    $required_cap = $type === 'theme' ? 'install_themes' : 'install_plugins';
-    if (!current_user_can($required_cap)) {
-        wp_die(__('You do not have permission to install this component.', 'gitup'));
-    }
-
-    if (defined('DISALLOW_FILE_MODS') && DISALLOW_FILE_MODS) {
-        gitup_redirect_with_notice(
-            __('File modifications are disabled on this site.', 'gitup'),
-            '0',
-            ['tab' => 'install']
-        );
+    $allowed = gitup_install_from_url_can_install($type === 'theme' ? 'theme' : 'plugin');
+    if (is_wp_error($allowed)) {
+        if ($allowed->get_error_code() === 'gitup_install_forbidden') {
+            wp_die($allowed->get_error_message());
+        }
+        gitup_redirect_with_notice($allowed->get_error_message(), '0', ['tab' => 'install']);
     }
 
     $url   = isset($_POST['gitup_install_repo_url'])
@@ -823,8 +873,12 @@ add_action('admin_post_gitup_install_from_url_confirm', function () {
 });
 
 add_action('admin_post_gitup_install_from_url_preview', function () {
-    if (!current_user_can('install_plugins') && !current_user_can('install_themes')) {
-        wp_die(__('You do not have permission to install plugins or themes.', 'gitup'));
+    $allowed = gitup_install_from_url_can_install('any');
+    if (is_wp_error($allowed)) {
+        if ($allowed->get_error_code() === 'gitup_install_forbidden') {
+            wp_die($allowed->get_error_message());
+        }
+        gitup_redirect_with_notice($allowed->get_error_message(), '0', ['tab' => 'install']);
     }
 
     $nonce = isset($_POST['_wpnonce']) ? sanitize_text_field(wp_unslash($_POST['_wpnonce'])) : '';
@@ -875,8 +929,9 @@ if (!function_exists('gitup_render_install_from_url_tab')) {
      * Den lever här för att hålla all install-from-URL-logik samlad i en fil.
      */
     function gitup_render_install_from_url_tab() {
-        if (!current_user_can('install_plugins') && !current_user_can('install_themes')) {
-            echo '<p>' . esc_html__('You do not have permission to install plugins or themes.', 'gitup') . '</p>';
+        $allowed = gitup_install_from_url_can_install('any');
+        if (is_wp_error($allowed)) {
+            echo '<p>' . esc_html($allowed->get_error_message()) . '</p>';
             return;
         }
 

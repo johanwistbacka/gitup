@@ -518,6 +518,82 @@ final class GitupInstallFromUrlTest extends GitupTestCase
         $this->assertStringContainsString('admin-post.php', $html);
     }
 
+    public function test_can_install_returns_true_for_plugin_when_capability_present(): void
+    {
+        $result = gitup_install_from_url_can_install('plugin');
+
+        $this->assertTrue($result);
+    }
+
+    public function test_can_install_returns_error_for_plugin_when_install_plugins_denied(): void
+    {
+        $GLOBALS['gitup_test_denied_caps'] = ['install_plugins'];
+
+        $result = gitup_install_from_url_can_install('plugin');
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_install_forbidden', $result->get_error_code());
+    }
+
+    public function test_can_install_returns_error_for_theme_when_install_themes_denied(): void
+    {
+        $GLOBALS['gitup_test_denied_caps'] = ['install_themes'];
+
+        $result = gitup_install_from_url_can_install('theme');
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_install_forbidden', $result->get_error_code());
+    }
+
+    public function test_can_install_any_returns_true_when_either_cap_present(): void
+    {
+        $GLOBALS['gitup_test_denied_caps'] = ['install_themes'];
+
+        $result = gitup_install_from_url_can_install('any');
+
+        $this->assertTrue($result);
+    }
+
+    public function test_can_install_any_returns_error_when_both_caps_denied(): void
+    {
+        $GLOBALS['gitup_test_denied_caps'] = ['install_plugins', 'install_themes'];
+
+        $result = gitup_install_from_url_can_install('any');
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_install_forbidden', $result->get_error_code());
+    }
+
+    public function test_detect_repo_component_type_distinguishes_rate_limit_from_auth(): void
+    {
+        $apiUrl = 'https://api.github.com/repos/owner/repo/contents?ref=1.0.0';
+        gitup_test_queue_http_response($apiUrl, [
+            'response' => ['code' => 403],
+            'headers'  => [],
+            'body'     => '{"message":"API rate limit exceeded for 1.2.3.4. (But here\'s the good news: ...)"}',
+        ]);
+
+        $result = gitup_detect_repo_component_type('https://github.com/owner/repo', '1.0.0');
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_detect_rate_limited', $result->get_error_code());
+    }
+
+    public function test_detect_repo_component_type_returns_auth_for_non_rate_limit_403(): void
+    {
+        $apiUrl = 'https://api.github.com/repos/owner/repo/contents?ref=1.0.0';
+        gitup_test_queue_http_response($apiUrl, [
+            'response' => ['code' => 403],
+            'headers'  => [],
+            'body'     => '{"message":"Resource not accessible by integration"}',
+        ]);
+
+        $result = gitup_detect_repo_component_type('https://github.com/owner/repo', '1.0.0');
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_detect_auth', $result->get_error_code());
+    }
+
     public function test_check_update_uri_header_returns_match_for_plugin_with_correct_header(): void
     {
         $GLOBALS['gitup_test_installed_plugins']['my-plugin/my-plugin.php'] = [

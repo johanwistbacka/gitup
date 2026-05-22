@@ -130,7 +130,8 @@ function get_theme_root($stylesheet_or_template = null) {
 }
 
 function current_user_can($capability) {
-    return true;
+    $denied = $GLOBALS['gitup_test_denied_caps'] ?? [];
+    return !in_array($capability, (array) $denied, true);
 }
 
 function admin_url($path = '') {
@@ -359,6 +360,7 @@ function gitup_test_reset_state(): void {
     $GLOBALS['gitup_test_installed_plugins'] = [];
     $GLOBALS['gitup_test_installed_themes'] = [];
     $GLOBALS['gitup_test_sent_mail'] = [];
+    $GLOBALS['gitup_test_denied_caps'] = [];
 }
 
 function gitup_test_queue_http_response(string $url, $response): void {
