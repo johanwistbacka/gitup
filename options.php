@@ -552,6 +552,7 @@ if (!function_exists("gitup_settings_page")) {
     // For nav tab links
     $base_url = admin_url('tools.php?page=gitup-settings');
     $updates_url = add_query_arg('tab', 'updates', $base_url);
+    $install_url = add_query_arg('tab', 'install', $base_url);
     $settings_url = add_query_arg('tab', 'settings', $base_url);
     ?>
     <div class="wrap">
@@ -565,6 +566,7 @@ if (!function_exists("gitup_settings_page")) {
       <p><?php echo esc_html__('Manage GitHub-hosted plugin and theme updates for your WordPress site.', 'gitup'); ?></p>
       <h2 class="nav-tab-wrapper" style="margin-bottom:20px;">
         <a href="<?php echo esc_url($updates_url); ?>" class="nav-tab<?php if ($active_tab === 'updates') echo ' nav-tab-active'; ?>"><?php esc_html_e('Updates', 'gitup'); ?></a>
+        <a href="<?php echo esc_url($install_url); ?>" class="nav-tab<?php if ($active_tab === 'install') echo ' nav-tab-active'; ?>"><?php esc_html_e('Install from URL', 'gitup'); ?></a>
         <a href="<?php echo esc_url($settings_url); ?>" class="nav-tab<?php if ($active_tab === 'settings') echo ' nav-tab-active'; ?>"><?php esc_html_e('Settings', 'gitup'); ?></a>
       </h2>
       <?php
@@ -867,6 +869,18 @@ if (!function_exists("gitup_settings_page")) {
                 <?php endif; ?>
             </tbody>
         </table>
+      <?php elseif ($active_tab === 'install') : ?>
+        <?php
+        // Show admin notices passed via redirect (?gitup_msg=...&ok=...) for the install tab.
+        if (isset($_GET['gitup_msg'])) {
+          $msg = sanitize_text_field(wp_unslash($_GET['gitup_msg']));
+          $class = (isset($_GET['ok']) && $_GET['ok'] === '1') ? 'updated' : 'error';
+          echo '<div class="' . esc_attr($class) . ' notice"><p>' . esc_html($msg) . '</p></div>';
+        }
+        if (function_exists('gitup_render_install_from_url_tab')) {
+          gitup_render_install_from_url_tab();
+        }
+        ?>
       <?php elseif ($active_tab === 'settings') : ?>
         <?php $ajax_nonce = wp_create_nonce('gitup_test_github_token'); $ajax_url = admin_url('admin-ajax.php'); ?>
         <div class="rg-tools" style="margin-top:20px;">

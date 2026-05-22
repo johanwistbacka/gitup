@@ -158,6 +158,14 @@ function esc_html__($text, $domain = null) {
     return $text;
 }
 
+function esc_html_e($text, $domain = null) {
+    echo (string) $text;
+}
+
+function esc_attr_e($text, $domain = null) {
+    echo (string) $text;
+}
+
 function esc_html($text) {
     return (string) $text;
 }
@@ -168,6 +176,14 @@ function esc_attr($text) {
 
 function __($text, $domain = null) {
     return $text;
+}
+
+function wp_create_nonce($action = -1) {
+    return 'test-nonce-' . md5((string) $action);
+}
+
+function get_current_user_id() {
+    return $GLOBALS['gitup_test_current_user_id'] ?? 1;
 }
 
 function sanitize_text_field($value) {

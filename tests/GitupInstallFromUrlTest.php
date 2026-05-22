@@ -443,6 +443,101 @@ final class GitupInstallFromUrlTest extends GitupTestCase
         $this->assertTrue($options['abort_if_destination_exists']);
     }
 
+    public function test_run_preview_returns_full_data_for_repo_with_releases(): void
+    {
+        update_option('gitup_include_prereleases', '1');
+        $repo = 'https://github.com/owner/my-plugin';
+        $this->queueRepoReleases($repo, [
+            ['tag_name' => '1.0.0', 'name' => '1.0.0', 'prerelease' => false],
+            ['tag_name' => '0.9.0', 'name' => '0.9.0', 'prerelease' => false],
+        ]);
+        $this->queueContentsListing('owner/my-plugin', '1.0.0', [
+            ['name' => 'my-plugin.php', 'type' => 'file'],
+        ]);
+        $this->queueFileContent('owner/my-plugin', 'my-plugin.php', '1.0.0', "<?php\n/*\nPlugin Name: My Plugin\n*/\n");
+
+        $result = gitup_run_install_from_url_preview($repo);
+
+        $this->assertFalse(is_wp_error($result));
+        $this->assertSame('https://github.com/owner/my-plugin', $result['repo_url']);
+        $this->assertSame('1.0.0', $result['tag_used']);
+        $this->assertSame('plugin', $result['type']);
+        $this->assertSame('My Plugin', $result['plugin_name']);
+        $this->assertCount(2, $result['releases']);
+    }
+
+    public function test_run_preview_uses_tag_from_url_when_provided(): void
+    {
+        update_option('gitup_include_prereleases', '1');
+        $repo = 'https://github.com/owner/my-plugin';
+        $this->queueRepoReleases($repo, [
+            ['tag_name' => '1.0.0', 'name' => '1.0.0', 'prerelease' => false],
+            ['tag_name' => '0.9.0', 'name' => '0.9.0', 'prerelease' => false],
+        ]);
+        // Stubs only for 0.9.0 — if it accidentally inspects latest, no stub will match.
+        $this->queueContentsListing('owner/my-plugin', '0.9.0', [
+            ['name' => 'my-plugin.php', 'type' => 'file'],
+        ]);
+        $this->queueFileContent('owner/my-plugin', 'my-plugin.php', '0.9.0', "<?php\n/*\nPlugin Name: Old Plugin\n*/\n");
+
+        $result = gitup_run_install_from_url_preview('https://github.com/owner/my-plugin/tree/0.9.0');
+
+        $this->assertFalse(is_wp_error($result));
+        $this->assertSame('0.9.0', $result['tag_used']);
+        $this->assertSame('Old Plugin', $result['plugin_name']);
+    }
+
+    public function test_run_preview_returns_error_for_invalid_url(): void
+    {
+        $result = gitup_run_install_from_url_preview('not-a-url');
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_invalid_url', $result->get_error_code());
+    }
+
+    public function test_run_preview_returns_error_when_no_releases_and_no_url_tag(): void
+    {
+        update_option('gitup_include_prereleases', '1');
+        $repo = 'https://github.com/owner/empty';
+        $this->queueRepoReleases($repo, []);
+
+        $result = gitup_run_install_from_url_preview($repo);
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_install_preview_no_releases', $result->get_error_code());
+    }
+
+    public function test_render_tab_shows_form_when_no_preview(): void
+    {
+        ob_start();
+        gitup_render_install_from_url_tab();
+        $html = ob_get_clean();
+
+        $this->assertStringContainsString('gitup_install_from_url_preview', $html);
+        $this->assertStringContainsString('gitup_install_url', $html);
+        $this->assertStringContainsString('admin-post.php', $html);
+    }
+
+    public function test_render_tab_shows_inspection_result_when_preview_transient_set(): void
+    {
+        set_transient(gitup_install_from_url_preview_transient_key(), [
+            'repo_url'    => 'https://github.com/owner/my-plugin',
+            'tag_used'    => '1.0.0',
+            'releases'    => [['tag' => '1.0.0', 'name' => '1.0.0', 'prerelease' => false]],
+            'type'        => 'plugin',
+            'plugin_name' => 'My Plugin',
+            'theme_name'  => null,
+        ]);
+
+        ob_start();
+        gitup_render_install_from_url_tab();
+        $html = ob_get_clean();
+
+        $this->assertStringContainsString('https://github.com/owner/my-plugin', $html);
+        $this->assertStringContainsString('1.0.0', $html);
+        $this->assertStringContainsString('My Plugin', $html);
+    }
+
     private function queueContentsListing(string $ownerRepo, string $tag, array $files): void
     {
         $url = 'https://api.github.com/repos/' . $ownerRepo . '/contents?ref=' . rawurlencode($tag);

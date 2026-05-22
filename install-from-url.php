@@ -500,3 +500,229 @@ if (!function_exists('gitup_build_theme_install_package_options_filter')) {
         };
     }
 }
+
+if (!function_exists('gitup_install_from_url_preview_transient_key')) {
+    /**
+     * Transient-nyckel för det aktuella preview-resultatet, scope:at per användare
+     * så att två admins inte trampar varandra på samma flik.
+     */
+    function gitup_install_from_url_preview_transient_key() {
+        $user_id = function_exists('get_current_user_id') ? (int) get_current_user_id() : 0;
+        return 'gitup_install_preview_' . $user_id;
+    }
+}
+
+if (!function_exists('gitup_run_install_from_url_preview')) {
+    /**
+     * Ren preview-logik: tar en GitHub-URL-input, parsar den, hämtar releaser
+     * och kör typdetektering. Returnerar samma struktur som lagras i preview-
+     * transientet (eller `WP_Error`).
+     *
+     * Den här funktionen har inget med $_POST/redirect att göra — admin-post-
+     * handlern är en tunn wrapper runt den.
+     *
+     * @param string $url_input Rå inmatning från användaren.
+     * @return array|WP_Error
+     */
+    function gitup_run_install_from_url_preview($url_input) {
+        $parsed = gitup_parse_install_source($url_input);
+        if (is_wp_error($parsed)) {
+            return $parsed;
+        }
+
+        $repo_url = (string) $parsed['repo_url'];
+        $url_tag  = $parsed['tag'];
+
+        $include_pre = function_exists('gitup_should_include_prereleases')
+            ? gitup_should_include_prereleases()
+            : false;
+        $releases = function_exists('gitup_fetch_releases')
+            ? gitup_fetch_releases($repo_url, $include_pre, 50)
+            : [];
+
+        if (!empty($releases) && isset($releases[0]['error'])) {
+            $code = $releases[0]['error'] === 'rate_limit'
+                ? 'gitup_install_preview_rate_limited'
+                : 'gitup_install_preview_releases_failed';
+            return new WP_Error(
+                $code,
+                __('Could not load releases from GitHub for this repository.', 'gitup')
+            );
+        }
+
+        $tag_used = $url_tag;
+        if ($tag_used === null) {
+            if (empty($releases)) {
+                return new WP_Error(
+                    'gitup_install_preview_no_releases',
+                    __('No releases found for this repository.', 'gitup')
+                );
+            }
+            $tag_used = (string) $releases[0]['tag'];
+        }
+
+        $detect = gitup_detect_repo_component_type($repo_url, $tag_used);
+        if (is_wp_error($detect)) {
+            return $detect;
+        }
+
+        return [
+            'repo_url'    => $repo_url,
+            'tag_used'    => (string) $tag_used,
+            'releases'    => $releases,
+            'type'        => $detect['type'],
+            'plugin_name' => $detect['plugin_name'],
+            'theme_name'  => $detect['theme_name'],
+        ];
+    }
+}
+
+add_action('admin_post_gitup_install_from_url_preview', function () {
+    if (!current_user_can('install_plugins') && !current_user_can('install_themes')) {
+        wp_die(__('You do not have permission to install plugins or themes.', 'gitup'));
+    }
+
+    $nonce = isset($_POST['_wpnonce']) ? sanitize_text_field(wp_unslash($_POST['_wpnonce'])) : '';
+    if (!wp_verify_nonce($nonce, 'gitup_install_from_url_preview')) {
+        gitup_redirect_with_notice(__('Invalid request.', 'gitup'), '0', ['tab' => 'install']);
+    }
+
+    $url = isset($_POST['gitup_install_url'])
+        ? sanitize_text_field(wp_unslash($_POST['gitup_install_url']))
+        : '';
+
+    $result = gitup_run_install_from_url_preview($url);
+    if (is_wp_error($result)) {
+        gitup_redirect_with_notice($result->get_error_message(), '0', ['tab' => 'install']);
+    }
+
+    set_transient(
+        gitup_install_from_url_preview_transient_key(),
+        $result,
+        15 * MINUTE_IN_SECONDS
+    );
+
+    wp_safe_redirect(gitup_get_settings_page_url(['tab' => 'install', 'previewed' => '1']));
+    exit;
+});
+
+if (!function_exists('gitup_render_install_from_url_tab')) {
+    /**
+     * Renderar fliken "Install from URL" på GitUps options-sida.
+     *
+     * Två lägen:
+     *   - utan transient: visa input-formuläret
+     *   - med transient:  visa inspect-resultatet (repo, tagg, typ, releaser)
+     *
+     * Funktionen anropas från `gitup_settings_page()` i [options.php].
+     * Den lever här för att hålla all install-from-URL-logik samlad i en fil.
+     */
+    function gitup_render_install_from_url_tab() {
+        if (!current_user_can('install_plugins') && !current_user_can('install_themes')) {
+            echo '<p>' . esc_html__('You do not have permission to install plugins or themes.', 'gitup') . '</p>';
+            return;
+        }
+
+        // Möjlighet att börja om: ?tab=install&reset=1
+        if (!empty($_GET['reset'])) {
+            delete_transient(gitup_install_from_url_preview_transient_key());
+        }
+
+        $preview = get_transient(gitup_install_from_url_preview_transient_key());
+        $action_url    = admin_url('admin-post.php');
+        $preview_nonce = wp_create_nonce('gitup_install_from_url_preview');
+        $reset_url     = gitup_get_settings_page_url(['tab' => 'install', 'reset' => '1']);
+        ?>
+        <div class="gitup-install-from-url" style="margin-top:20px;">
+          <h2><?php esc_html_e('Install plugin or theme from GitHub URL', 'gitup'); ?></h2>
+          <p><?php esc_html_e('Paste a GitHub repository URL (or owner/repo). GitUp will inspect the repository and let you confirm before installing.', 'gitup'); ?></p>
+
+          <form method="post" action="<?php echo esc_url($action_url); ?>" style="max-width:640px;">
+            <input type="hidden" name="action" value="gitup_install_from_url_preview">
+            <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($preview_nonce); ?>">
+            <p>
+              <label for="gitup_install_url"><strong><?php esc_html_e('GitHub URL', 'gitup'); ?></strong></label><br>
+              <input type="text" id="gitup_install_url" name="gitup_install_url" placeholder="https://github.com/owner/repo" class="regular-text" required>
+            </p>
+            <p>
+              <button type="submit" class="button button-primary"><?php esc_html_e('Inspect repository', 'gitup'); ?></button>
+            </p>
+          </form>
+
+          <?php if (is_array($preview)) : ?>
+            <hr style="margin:24px 0;">
+            <h3><?php esc_html_e('Inspection result', 'gitup'); ?></h3>
+            <table class="form-table">
+              <tr>
+                <th scope="row"><?php esc_html_e('Repository', 'gitup'); ?></th>
+                <td>
+                  <a href="<?php echo esc_url((string) $preview['repo_url']); ?>" target="_blank" rel="noopener">
+                    <?php echo esc_html((string) $preview['repo_url']); ?>
+                  </a>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row"><?php esc_html_e('Tag inspected', 'gitup'); ?></th>
+                <td><code><?php echo esc_html((string) $preview['tag_used']); ?></code></td>
+              </tr>
+              <tr>
+                <th scope="row"><?php esc_html_e('Detected type', 'gitup'); ?></th>
+                <td>
+                  <?php
+                  switch ((string) $preview['type']) {
+                      case 'plugin':
+                          printf(
+                              /* translators: %s: plugin name from header */
+                              esc_html__('Plugin (%s)', 'gitup'),
+                              esc_html((string) $preview['plugin_name'])
+                          );
+                          break;
+                      case 'theme':
+                          printf(
+                              /* translators: %s: theme name from style.css */
+                              esc_html__('Theme (%s)', 'gitup'),
+                              esc_html((string) $preview['theme_name'])
+                          );
+                          break;
+                      case 'both':
+                          esc_html_e('Both plugin and theme headers were detected — you will pick which one to install in the next step.', 'gitup');
+                          break;
+                      case 'none':
+                      default:
+                          esc_html_e('Neither plugin nor theme headers were detected. Are you sure this is a WordPress plugin or theme repository?', 'gitup');
+                          break;
+                  }
+                  ?>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row"><?php esc_html_e('Available releases', 'gitup'); ?></th>
+                <td>
+                  <?php if (!empty($preview['releases'])) : ?>
+                    <ul style="margin:0;">
+                      <?php foreach (array_slice((array) $preview['releases'], 0, 10) as $release) : ?>
+                        <li>
+                          <code><?php echo esc_html((string) ($release['tag'] ?? '')); ?></code>
+                          <?php if (!empty($release['prerelease'])) : ?>
+                            <em>(<?php esc_html_e('prerelease', 'gitup'); ?>)</em>
+                          <?php endif; ?>
+                        </li>
+                      <?php endforeach; ?>
+                    </ul>
+                  <?php else : ?>
+                    <em><?php esc_html_e('No releases found.', 'gitup'); ?></em>
+                  <?php endif; ?>
+                </td>
+              </tr>
+            </table>
+            <p>
+              <em><?php esc_html_e('Confirm + install will be wired up in the next milestone.', 'gitup'); ?></em>
+            </p>
+            <p>
+              <a href="<?php echo esc_url($reset_url); ?>" class="button"><?php esc_html_e('Inspect another repository', 'gitup'); ?></a>
+            </p>
+          <?php endif; ?>
+        </div>
+        <?php
+    }
+}
