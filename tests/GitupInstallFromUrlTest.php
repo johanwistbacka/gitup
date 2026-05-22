@@ -518,6 +518,122 @@ final class GitupInstallFromUrlTest extends GitupTestCase
         $this->assertStringContainsString('admin-post.php', $html);
     }
 
+    public function test_check_update_uri_header_returns_match_for_plugin_with_correct_header(): void
+    {
+        $GLOBALS['gitup_test_installed_plugins']['my-plugin/my-plugin.php'] = [
+            'Name'      => 'My Plugin',
+            'Version'   => '1.0.0',
+            'UpdateURI' => 'https://github.com/owner/my-plugin',
+        ];
+
+        $result = gitup_install_from_url_check_update_uri_header(
+            'plugin',
+            'my-plugin',
+            'https://github.com/owner/my-plugin'
+        );
+
+        $this->assertTrue($result['matches']);
+        $this->assertSame('https://github.com/owner/my-plugin', $result['detected_repo']);
+    }
+
+    public function test_check_update_uri_header_returns_no_match_for_plugin_with_missing_header(): void
+    {
+        $GLOBALS['gitup_test_installed_plugins']['my-plugin/my-plugin.php'] = [
+            'Name'    => 'My Plugin',
+            'Version' => '1.0.0',
+        ];
+
+        $result = gitup_install_from_url_check_update_uri_header(
+            'plugin',
+            'my-plugin',
+            'https://github.com/owner/my-plugin'
+        );
+
+        $this->assertFalse($result['matches']);
+        $this->assertSame('', $result['detected_repo']);
+    }
+
+    public function test_check_update_uri_header_returns_no_match_for_plugin_with_wrong_header(): void
+    {
+        $GLOBALS['gitup_test_installed_plugins']['my-plugin/my-plugin.php'] = [
+            'Name'      => 'My Plugin',
+            'Version'   => '1.0.0',
+            'UpdateURI' => 'https://github.com/other/repo',
+        ];
+
+        $result = gitup_install_from_url_check_update_uri_header(
+            'plugin',
+            'my-plugin',
+            'https://github.com/owner/my-plugin'
+        );
+
+        $this->assertFalse($result['matches']);
+        $this->assertSame('https://github.com/other/repo', $result['detected_repo']);
+    }
+
+    public function test_check_update_uri_header_returns_match_for_theme_with_update_uri(): void
+    {
+        $GLOBALS['gitup_test_installed_themes']['my-theme'] = new GitupTestTheme([
+            'UpdateURI' => 'https://github.com/owner/my-theme',
+            'ThemeURI'  => '',
+        ]);
+
+        $result = gitup_install_from_url_check_update_uri_header(
+            'theme',
+            'my-theme',
+            'https://github.com/owner/my-theme'
+        );
+
+        $this->assertTrue($result['matches']);
+    }
+
+    public function test_check_update_uri_header_returns_match_for_theme_with_only_theme_uri(): void
+    {
+        // gitup_get_theme_repo_url falls back to ThemeURI, so this counts as covered.
+        $GLOBALS['gitup_test_installed_themes']['my-theme'] = new GitupTestTheme([
+            'UpdateURI' => '',
+            'ThemeURI'  => 'https://github.com/owner/my-theme',
+        ]);
+
+        $result = gitup_install_from_url_check_update_uri_header(
+            'theme',
+            'my-theme',
+            'https://github.com/owner/my-theme'
+        );
+
+        $this->assertTrue($result['matches']);
+    }
+
+    public function test_check_update_uri_header_returns_no_match_for_theme_with_no_header(): void
+    {
+        $GLOBALS['gitup_test_installed_themes']['my-theme'] = new GitupTestTheme([
+            'UpdateURI' => '',
+            'ThemeURI'  => '',
+        ]);
+
+        $result = gitup_install_from_url_check_update_uri_header(
+            'theme',
+            'my-theme',
+            'https://github.com/owner/my-theme'
+        );
+
+        $this->assertFalse($result['matches']);
+        $this->assertSame('', $result['detected_repo']);
+    }
+
+    public function test_check_update_uri_header_returns_no_match_when_component_not_found(): void
+    {
+        // No plugin seeded.
+        $result = gitup_install_from_url_check_update_uri_header(
+            'plugin',
+            'missing-plugin',
+            'https://github.com/owner/missing-plugin'
+        );
+
+        $this->assertFalse($result['matches']);
+        $this->assertSame('', $result['detected_repo']);
+    }
+
     public function test_resolve_confirm_request_rejects_unknown_type(): void
     {
         $result = gitup_resolve_install_from_url_confirm_request('https://github.com/owner/repo', '1.0.0', 'banana');

@@ -651,6 +651,61 @@ if (!function_exists('gitup_resolve_install_from_url_confirm_request')) {
     }
 }
 
+if (!function_exists('gitup_install_from_url_check_update_uri_header')) {
+    /**
+     * Kollar om en nyinstallerad komponent (plugin eller tema) har en
+     * `Update URI`-header som matchar det repo vi installerade från.
+     *
+     * För plugins krävs `UpdateURI` exakt — det är vad WordPress matchar
+     * sin updates-routing på. För teman accepteras även `ThemeURI` som
+     * fallback, eftersom GitUps egna update-detection (`gitup_get_theme_repo_url`)
+     * gör samma fallback i den vanliga update-rundan.
+     *
+     * Resultatet används för att förlänga success-noticen med en varning
+     * när framtida uppdateringar inte kommer kunna skötas av GitUp utan
+     * en manuell header-fix.
+     *
+     * @param string $type            `'plugin'` eller `'theme'`.
+     * @param string $desired_name    Plugin-slug (mappnamn) eller tema-stylesheet.
+     * @param string $expected_repo   Normaliserad repo-URL vi installerade från.
+     * @return array{matches:bool,detected_repo:string}
+     */
+    function gitup_install_from_url_check_update_uri_header($type, $desired_name, $expected_repo) {
+        if ($type === 'plugin') {
+            $plugins = function_exists('get_plugins') ? get_plugins() : [];
+            foreach ((array) $plugins as $plugin_file => $info) {
+                if (dirname((string) $plugin_file) === (string) $desired_name) {
+                    $detected = function_exists('gitup_get_plugin_repo_url')
+                        ? gitup_get_plugin_repo_url($info)
+                        : '';
+                    return [
+                        'matches'       => $detected !== '' && $detected === $expected_repo,
+                        'detected_repo' => (string) $detected,
+                    ];
+                }
+            }
+            return ['matches' => false, 'detected_repo' => ''];
+        }
+
+        if ($type === 'theme') {
+            $themes = function_exists('wp_get_themes') ? wp_get_themes() : [];
+            $theme = is_array($themes) && isset($themes[$desired_name]) ? $themes[$desired_name] : null;
+            if (!$theme) {
+                return ['matches' => false, 'detected_repo' => ''];
+            }
+            $detected = function_exists('gitup_get_theme_repo_url')
+                ? gitup_get_theme_repo_url($theme)
+                : '';
+            return [
+                'matches'       => $detected !== '' && $detected === $expected_repo,
+                'detected_repo' => (string) $detected,
+            ];
+        }
+
+        return ['matches' => false, 'detected_repo' => ''];
+    }
+}
+
 if (!function_exists('gitup_install_from_url_confirm_nonce_action')) {
     /**
      * Bygger ett nonce-action som binder repo_url + tag + type, så att en
@@ -735,6 +790,29 @@ add_action('admin_post_gitup_install_from_url_confirm', function () {
         $msg = $resolved['type'] === 'plugin'
             ? __('Plugin installed successfully from GitHub URL.', 'gitup')
             : __('Theme installed successfully from GitHub URL.', 'gitup');
+
+        // Verifiera att den installerade komponenten faktiskt har en Update URI
+        // som matchar repo:t. Saknas headern går WordPress/GitUps update-detection
+        // bet, och vi måste informera användaren om att framtida uppdateringar
+        // inte kommer skötas automatiskt förrän den läggs till.
+        $desired_name = $resolved['type'] === 'plugin'
+            ? $resolved['prepared']['desired_slug']
+            : $resolved['prepared']['desired_stylesheet'];
+        $expected_repo = (string) $resolved['prepared']['repo_url'];
+
+        $header_check = gitup_install_from_url_check_update_uri_header(
+            $resolved['type'],
+            $desired_name,
+            $expected_repo
+        );
+        if (is_array($header_check) && empty($header_check['matches'])) {
+            $msg .= ' ' . sprintf(
+                /* translators: %s: full Update URI value the installed component should declare */
+                __('Note: GitUp will not be able to auto-update it until the main file declares `Update URI: %s`.', 'gitup'),
+                $expected_repo
+            );
+        }
+
         gitup_redirect_with_notice($msg, '1', ['tab' => 'install']);
     } else {
         $msg = is_wp_error($result)
