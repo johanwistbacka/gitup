@@ -608,6 +608,142 @@ if (!function_exists('gitup_run_install_from_url_preview')) {
     }
 }
 
+if (!function_exists('gitup_resolve_install_from_url_confirm_request')) {
+    /**
+     * Validerar och förbereder en bekräftad install-from-URL-förfrågan.
+     *
+     * Skiljer pure logic från $_POST/upgrader-glue — admin-post-handlern är
+     * en tunn wrapper runt denna funktion, vilket gör den enhetstestbar.
+     *
+     * @param string $url   Repo-URL från det dolda formulärfältet.
+     * @param string $tag   Tagg från det dolda formulärfältet.
+     * @param string $type  `'plugin'` eller `'theme'`.
+     * @return array{type:string,prepared:array}|WP_Error
+     */
+    function gitup_resolve_install_from_url_confirm_request($url, $tag, $type) {
+        if (!is_string($type) || !in_array($type, ['plugin', 'theme'], true)) {
+            return new WP_Error('gitup_invalid_install_type', __('Invalid install type.', 'gitup'));
+        }
+
+        $parsed = gitup_parse_install_source($url);
+        if (is_wp_error($parsed)) {
+            return $parsed;
+        }
+
+        if (!is_string($tag) || $tag === '') {
+            return new WP_Error('gitup_missing_tag', __('A release tag is required.', 'gitup'));
+        }
+
+        if ($type === 'plugin') {
+            $prepared = gitup_prepare_plugin_install_from_url($parsed['repo_url'], $tag);
+        } else {
+            $prepared = gitup_prepare_theme_install_from_url($parsed['repo_url'], $tag);
+        }
+
+        if (is_wp_error($prepared)) {
+            return $prepared;
+        }
+
+        return [
+            'type'     => $type,
+            'prepared' => $prepared,
+        ];
+    }
+}
+
+if (!function_exists('gitup_install_from_url_confirm_nonce_action')) {
+    /**
+     * Bygger ett nonce-action som binder repo_url + tag + type, så att en
+     * användare inte kan ändra de dolda formulärfälten och återanvända
+     * sin nonce.
+     */
+    function gitup_install_from_url_confirm_nonce_action($repo_url, $tag, $type) {
+        return 'gitup_install_from_url_confirm_' . md5(
+            (string) $repo_url . '|' . (string) $tag . '|' . (string) $type
+        );
+    }
+}
+
+add_action('admin_post_gitup_install_from_url_confirm', function () {
+    $type = isset($_POST['gitup_install_type'])
+        ? sanitize_key(wp_unslash($_POST['gitup_install_type']))
+        : '';
+
+    $required_cap = $type === 'theme' ? 'install_themes' : 'install_plugins';
+    if (!current_user_can($required_cap)) {
+        wp_die(__('You do not have permission to install this component.', 'gitup'));
+    }
+
+    if (defined('DISALLOW_FILE_MODS') && DISALLOW_FILE_MODS) {
+        gitup_redirect_with_notice(
+            __('File modifications are disabled on this site.', 'gitup'),
+            '0',
+            ['tab' => 'install']
+        );
+    }
+
+    $url   = isset($_POST['gitup_install_repo_url'])
+        ? sanitize_text_field(wp_unslash($_POST['gitup_install_repo_url']))
+        : '';
+    $tag   = isset($_POST['gitup_install_tag'])
+        ? sanitize_text_field(wp_unslash($_POST['gitup_install_tag']))
+        : '';
+    $nonce = isset($_POST['_wpnonce'])
+        ? sanitize_text_field(wp_unslash($_POST['_wpnonce']))
+        : '';
+
+    if (!wp_verify_nonce($nonce, gitup_install_from_url_confirm_nonce_action($url, $tag, $type))) {
+        gitup_redirect_with_notice(__('Invalid request.', 'gitup'), '0', ['tab' => 'install']);
+    }
+
+    $resolved = gitup_resolve_install_from_url_confirm_request($url, $tag, $type);
+    if (is_wp_error($resolved)) {
+        gitup_redirect_with_notice($resolved->get_error_message(), '0', ['tab' => 'install']);
+    }
+
+    require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+    require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+    $skin = new Automatic_Upgrader_Skin();
+
+    if ($resolved['type'] === 'plugin') {
+        $upgrader = new Plugin_Upgrader($skin);
+        $filter   = gitup_build_plugin_install_package_options_filter($resolved['prepared']['desired_slug']);
+    } else {
+        $upgrader = new Theme_Upgrader($skin);
+        $filter   = gitup_build_theme_install_package_options_filter($resolved['prepared']['desired_stylesheet']);
+    }
+
+    add_filter('upgrader_package_options', $filter);
+    $result = $upgrader->install($resolved['prepared']['package']);
+    remove_filter('upgrader_package_options', $filter);
+
+    if ($result && !is_wp_error($result)) {
+        // Lyckad install — rensa preview-transientet och alla relevanta caches
+        // så att efterföljande update-check direkt plockar upp den nya
+        // komponenten via dess `Update URI`-header.
+        delete_transient(gitup_install_from_url_preview_transient_key());
+        if (function_exists('wp_clean_plugins_cache')) {
+            wp_clean_plugins_cache();
+        }
+        if (function_exists('wp_clean_themes_cache')) {
+            wp_clean_themes_cache();
+        }
+        delete_site_transient('update_plugins');
+        delete_site_transient('update_themes');
+
+        $msg = $resolved['type'] === 'plugin'
+            ? __('Plugin installed successfully from GitHub URL.', 'gitup')
+            : __('Theme installed successfully from GitHub URL.', 'gitup');
+        gitup_redirect_with_notice($msg, '1', ['tab' => 'install']);
+    } else {
+        $msg = is_wp_error($result)
+            ? $result->get_error_message()
+            : __('Installation failed.', 'gitup');
+        gitup_redirect_with_notice($msg, '0', ['tab' => 'install']);
+    }
+});
+
 add_action('admin_post_gitup_install_from_url_preview', function () {
     if (!current_user_can('install_plugins') && !current_user_can('install_themes')) {
         wp_die(__('You do not have permission to install plugins or themes.', 'gitup'));
@@ -763,10 +899,41 @@ if (!function_exists('gitup_render_install_from_url_tab')) {
                 </td>
               </tr>
             </table>
+            <?php
+            $preview_type = (string) $preview['type'];
+            $preview_repo = (string) $preview['repo_url'];
+            $preview_tag  = (string) $preview['tag_used'];
+            $show_plugin_button = in_array($preview_type, ['plugin', 'both'], true);
+            $show_theme_button  = in_array($preview_type, ['theme', 'both'], true);
+            ?>
+
+            <?php if ($preview_type === 'none') : ?>
+              <p><em><?php esc_html_e('No install button is shown because this repository does not look like a WordPress plugin or theme. Double-check the URL or pick a different release.', 'gitup'); ?></em></p>
+            <?php endif; ?>
+
             <p>
-              <em><?php esc_html_e('Confirm + install will be wired up in the next milestone.', 'gitup'); ?></em>
-            </p>
-            <p>
+              <?php if ($show_plugin_button) : ?>
+                <form method="post" action="<?php echo esc_url($action_url); ?>" style="display:inline-block; margin-right:8px;">
+                  <input type="hidden" name="action" value="gitup_install_from_url_confirm">
+                  <input type="hidden" name="gitup_install_repo_url" value="<?php echo esc_attr($preview_repo); ?>">
+                  <input type="hidden" name="gitup_install_tag" value="<?php echo esc_attr($preview_tag); ?>">
+                  <input type="hidden" name="gitup_install_type" value="plugin">
+                  <input type="hidden" name="_wpnonce" value="<?php echo esc_attr(wp_create_nonce(gitup_install_from_url_confirm_nonce_action($preview_repo, $preview_tag, 'plugin'))); ?>">
+                  <button type="submit" class="button button-primary"><?php esc_html_e('Install as plugin', 'gitup'); ?></button>
+                </form>
+              <?php endif; ?>
+
+              <?php if ($show_theme_button) : ?>
+                <form method="post" action="<?php echo esc_url($action_url); ?>" style="display:inline-block; margin-right:8px;">
+                  <input type="hidden" name="action" value="gitup_install_from_url_confirm">
+                  <input type="hidden" name="gitup_install_repo_url" value="<?php echo esc_attr($preview_repo); ?>">
+                  <input type="hidden" name="gitup_install_tag" value="<?php echo esc_attr($preview_tag); ?>">
+                  <input type="hidden" name="gitup_install_type" value="theme">
+                  <input type="hidden" name="_wpnonce" value="<?php echo esc_attr(wp_create_nonce(gitup_install_from_url_confirm_nonce_action($preview_repo, $preview_tag, 'theme'))); ?>">
+                  <button type="submit" class="button button-primary"><?php esc_html_e('Install as theme', 'gitup'); ?></button>
+                </form>
+              <?php endif; ?>
+
               <a href="<?php echo esc_url($reset_url); ?>" class="button"><?php esc_html_e('Inspect another repository', 'gitup'); ?></a>
             </p>
           <?php endif; ?>

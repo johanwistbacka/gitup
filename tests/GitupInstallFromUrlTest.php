@@ -518,6 +518,143 @@ final class GitupInstallFromUrlTest extends GitupTestCase
         $this->assertStringContainsString('admin-post.php', $html);
     }
 
+    public function test_resolve_confirm_request_rejects_unknown_type(): void
+    {
+        $result = gitup_resolve_install_from_url_confirm_request('https://github.com/owner/repo', '1.0.0', 'banana');
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_invalid_install_type', $result->get_error_code());
+    }
+
+    public function test_resolve_confirm_request_rejects_invalid_url(): void
+    {
+        $result = gitup_resolve_install_from_url_confirm_request('not-a-url', '1.0.0', 'plugin');
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_invalid_url', $result->get_error_code());
+    }
+
+    public function test_resolve_confirm_request_rejects_empty_tag(): void
+    {
+        $result = gitup_resolve_install_from_url_confirm_request('https://github.com/owner/repo', '', 'plugin');
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_missing_tag', $result->get_error_code());
+    }
+
+    public function test_resolve_confirm_request_returns_prepared_plugin_data(): void
+    {
+        $repo = 'https://github.com/owner/my-plugin';
+        update_option('gitup_include_prereleases', '1');
+        $this->queueRepoReleases($repo, [
+            ['tag_name' => '1.0.0', 'name' => '1.0.0', 'prerelease' => false],
+        ]);
+
+        $result = gitup_resolve_install_from_url_confirm_request($repo, '1.0.0', 'plugin');
+
+        $this->assertFalse(is_wp_error($result));
+        $this->assertSame('plugin', $result['type']);
+        $this->assertSame('my-plugin', $result['prepared']['desired_slug']);
+        $this->assertSame(
+            'https://codeload.github.com/owner/my-plugin/zip/refs/tags/1.0.0',
+            $result['prepared']['package']
+        );
+    }
+
+    public function test_resolve_confirm_request_returns_prepared_theme_data(): void
+    {
+        $repo = 'https://github.com/owner/my-theme';
+        update_option('gitup_include_prereleases', '1');
+        $this->queueRepoReleases($repo, [
+            ['tag_name' => '2.0.0', 'name' => '2.0.0', 'prerelease' => false],
+        ]);
+
+        $result = gitup_resolve_install_from_url_confirm_request($repo, '2.0.0', 'theme');
+
+        $this->assertFalse(is_wp_error($result));
+        $this->assertSame('theme', $result['type']);
+        $this->assertSame('my-theme', $result['prepared']['desired_stylesheet']);
+    }
+
+    public function test_resolve_confirm_request_propagates_unverified_tag_error(): void
+    {
+        $repo = 'https://github.com/owner/my-plugin';
+        update_option('gitup_include_prereleases', '1');
+        $this->queueRepoReleases($repo, [
+            ['tag_name' => '1.0.0', 'name' => '1.0.0', 'prerelease' => false],
+        ]);
+
+        $result = gitup_resolve_install_from_url_confirm_request($repo, '9.9.9', 'plugin');
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_install_release_not_verified', $result->get_error_code());
+    }
+
+    public function test_render_tab_shows_install_buttons_for_plugin_preview(): void
+    {
+        set_transient(gitup_install_from_url_preview_transient_key(), [
+            'url_input'   => 'owner/repo',
+            'repo_url'    => 'https://github.com/owner/repo',
+            'tag_used'    => '1.0.0',
+            'releases'    => [['tag' => '1.0.0', 'name' => '1.0.0', 'prerelease' => false]],
+            'type'        => 'plugin',
+            'plugin_name' => 'X',
+            'theme_name'  => null,
+        ]);
+
+        ob_start();
+        gitup_render_install_from_url_tab();
+        $html = ob_get_clean();
+
+        $this->assertStringContainsString('gitup_install_from_url_confirm', $html);
+        $this->assertStringContainsString('Install as plugin', $html);
+        // No theme button when type is plugin only.
+        if (strpos($html, 'Install as theme') !== false) {
+            $this->fail('Did not expect theme install button when type is plugin.');
+        }
+    }
+
+    public function test_render_tab_shows_both_install_buttons_for_both_preview(): void
+    {
+        set_transient(gitup_install_from_url_preview_transient_key(), [
+            'url_input'   => 'owner/repo',
+            'repo_url'    => 'https://github.com/owner/repo',
+            'tag_used'    => '1.0.0',
+            'releases'    => [],
+            'type'        => 'both',
+            'plugin_name' => 'X',
+            'theme_name'  => 'Y',
+        ]);
+
+        ob_start();
+        gitup_render_install_from_url_tab();
+        $html = ob_get_clean();
+
+        $this->assertStringContainsString('Install as plugin', $html);
+        $this->assertStringContainsString('Install as theme', $html);
+    }
+
+    public function test_render_tab_omits_install_buttons_for_none_preview(): void
+    {
+        set_transient(gitup_install_from_url_preview_transient_key(), [
+            'url_input'   => 'owner/repo',
+            'repo_url'    => 'https://github.com/owner/repo',
+            'tag_used'    => '1.0.0',
+            'releases'    => [],
+            'type'        => 'none',
+            'plugin_name' => null,
+            'theme_name'  => null,
+        ]);
+
+        ob_start();
+        gitup_render_install_from_url_tab();
+        $html = ob_get_clean();
+
+        if (strpos($html, 'Install as plugin') !== false || strpos($html, 'Install as theme') !== false) {
+            $this->fail('Did not expect install buttons when type is none.');
+        }
+    }
+
     public function test_render_tab_repopulates_url_field_when_preview_transient_has_url_input(): void
     {
         set_transient(gitup_install_from_url_preview_transient_key(), [
