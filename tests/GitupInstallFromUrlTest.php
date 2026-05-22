@@ -170,4 +170,160 @@ final class GitupInstallFromUrlTest extends GitupTestCase
         $this->assertTrue(is_wp_error($result));
         $this->assertSame('gitup_invalid_url', $result->get_error_code());
     }
+
+    public function test_detect_repo_component_type_returns_plugin_for_php_with_plugin_name_header(): void
+    {
+        $this->queueContentsListing('owner/repo', '1.0.0', [
+            ['name' => 'my-plugin.php', 'type' => 'file'],
+            ['name' => 'README.md', 'type' => 'file'],
+        ]);
+        $this->queueFileContent('owner/repo', 'my-plugin.php', '1.0.0', "<?php\n/*\nPlugin Name: My Plugin\n*/\n");
+
+        $result = gitup_detect_repo_component_type('https://github.com/owner/repo', '1.0.0');
+
+        $this->assertFalse(is_wp_error($result));
+        $this->assertSame('plugin', $result['type']);
+        $this->assertSame('My Plugin', $result['plugin_name']);
+        $this->assertSame(null, $result['theme_name']);
+    }
+
+    public function test_detect_repo_component_type_returns_theme_for_style_css_with_theme_name(): void
+    {
+        $this->queueContentsListing('owner/repo', '1.0.0', [
+            ['name' => 'style.css', 'type' => 'file'],
+            ['name' => 'index.php', 'type' => 'file'],
+        ]);
+        $this->queueFileContent('owner/repo', 'style.css', '1.0.0', "/*\nTheme Name: My Theme\n*/\n");
+        // index.php has no Plugin Name header — should not trigger plugin detection.
+        $this->queueFileContent('owner/repo', 'index.php', '1.0.0', "<?php\n// silence\n");
+
+        $result = gitup_detect_repo_component_type('https://github.com/owner/repo', '1.0.0');
+
+        $this->assertFalse(is_wp_error($result));
+        $this->assertSame('theme', $result['type']);
+        $this->assertSame('My Theme', $result['theme_name']);
+        $this->assertSame(null, $result['plugin_name']);
+    }
+
+    public function test_detect_repo_component_type_returns_both_when_plugin_and_theme_headers_found(): void
+    {
+        $this->queueContentsListing('owner/repo', '1.0.0', [
+            ['name' => 'style.css', 'type' => 'file'],
+            ['name' => 'my-plugin.php', 'type' => 'file'],
+        ]);
+        $this->queueFileContent('owner/repo', 'style.css', '1.0.0', "/*\nTheme Name: My Theme\n*/\n");
+        $this->queueFileContent('owner/repo', 'my-plugin.php', '1.0.0', "<?php\n/*\nPlugin Name: My Plugin\n*/\n");
+
+        $result = gitup_detect_repo_component_type('https://github.com/owner/repo', '1.0.0');
+
+        $this->assertFalse(is_wp_error($result));
+        $this->assertSame('both', $result['type']);
+        $this->assertSame('My Plugin', $result['plugin_name']);
+        $this->assertSame('My Theme', $result['theme_name']);
+    }
+
+    public function test_detect_repo_component_type_returns_none_when_no_headers_found(): void
+    {
+        $this->queueContentsListing('owner/repo', '1.0.0', [
+            ['name' => 'README.md', 'type' => 'file'],
+            ['name' => 'LICENSE', 'type' => 'file'],
+        ]);
+
+        $result = gitup_detect_repo_component_type('https://github.com/owner/repo', '1.0.0');
+
+        $this->assertFalse(is_wp_error($result));
+        $this->assertSame('none', $result['type']);
+        $this->assertSame(null, $result['plugin_name']);
+        $this->assertSame(null, $result['theme_name']);
+    }
+
+    public function test_detect_repo_component_type_prefers_repo_named_php_file(): void
+    {
+        // Repo is 'gitup' — gitup.php should be checked before some-other.php.
+        $this->queueContentsListing('owner/gitup', '1.0.0', [
+            ['name' => 'some-other.php', 'type' => 'file'],
+            ['name' => 'gitup.php', 'type' => 'file'],
+        ]);
+        $this->queueFileContent('owner/gitup', 'gitup.php', '1.0.0', "<?php\n/*\nPlugin Name: GitUp\n*/\n");
+        // some-other.php intentionally not stubbed — if it gets fetched, the test framework will queue-miss.
+
+        $result = gitup_detect_repo_component_type('https://github.com/owner/gitup', '1.0.0');
+
+        $this->assertFalse(is_wp_error($result));
+        $this->assertSame('plugin', $result['type']);
+        $this->assertSame('GitUp', $result['plugin_name']);
+    }
+
+    public function test_detect_repo_component_type_rejects_invalid_repo_url(): void
+    {
+        $result = gitup_detect_repo_component_type('not-a-url', '1.0.0');
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_invalid_url', $result->get_error_code());
+    }
+
+    public function test_detect_repo_component_type_returns_error_when_repo_not_found(): void
+    {
+        $apiUrl = 'https://api.github.com/repos/owner/missing/contents?ref=1.0.0';
+        gitup_test_queue_http_response($apiUrl, [
+            'response' => ['code' => 404],
+            'headers'  => [],
+            'body'     => '{"message":"Not Found"}',
+        ]);
+
+        $result = gitup_detect_repo_component_type('https://github.com/owner/missing', '1.0.0');
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_detect_not_found', $result->get_error_code());
+    }
+
+    public function test_detect_repo_component_type_returns_error_on_auth_failure(): void
+    {
+        $apiUrl = 'https://api.github.com/repos/owner/repo/contents?ref=1.0.0';
+        gitup_test_queue_http_response($apiUrl, [
+            'response' => ['code' => 401],
+            'headers'  => [],
+            'body'     => '{"message":"Bad credentials"}',
+        ]);
+
+        $result = gitup_detect_repo_component_type('https://github.com/owner/repo', '1.0.0');
+
+        $this->assertTrue(is_wp_error($result));
+        $this->assertSame('gitup_detect_auth', $result->get_error_code());
+    }
+
+    public function test_detect_repo_component_type_handles_tag_with_slash(): void
+    {
+        // Tag "release/2026-03" must be rawurlencoded → release%2F2026-03
+        $this->queueContentsListing('owner/repo', 'release/2026-03', [
+            ['name' => 'style.css', 'type' => 'file'],
+        ]);
+        $this->queueFileContent('owner/repo', 'style.css', 'release/2026-03', "/*\nTheme Name: Slash Theme\n*/\n");
+
+        $result = gitup_detect_repo_component_type('https://github.com/owner/repo', 'release/2026-03');
+
+        $this->assertFalse(is_wp_error($result));
+        $this->assertSame('theme', $result['type']);
+        $this->assertSame('Slash Theme', $result['theme_name']);
+    }
+
+    private function queueContentsListing(string $ownerRepo, string $tag, array $files): void
+    {
+        $url = 'https://api.github.com/repos/' . $ownerRepo . '/contents?ref=' . rawurlencode($tag);
+        gitup_test_queue_http_response($url, [
+            'response' => ['code' => 200],
+            'headers'  => [],
+            'body'     => json_encode($files),
+        ]);
+    }
+
+    private function queueFileContent(string $ownerRepo, string $filePath, string $tag, string $content): void
+    {
+        $url = 'https://api.github.com/repos/' . $ownerRepo . '/contents/' . $filePath . '?ref=' . rawurlencode($tag);
+        gitup_test_queue_http_response($url, [
+            'response' => ['code' => 200],
+            'headers'  => [],
+            'body'     => $content,
+        ]);
+    }
 }

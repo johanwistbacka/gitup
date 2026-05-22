@@ -130,3 +130,190 @@ if (!function_exists('gitup_parse_install_source')) {
         ];
     }
 }
+
+if (!function_exists('gitup_detect_repo_component_type')) {
+    /**
+     * Probe-anrop mot GitHub Contents API för att gissa om ett repo innehåller
+     * ett plugin, ett tema, båda eller inget — vid en given tagg/ref.
+     *
+     * Strategin är att först lista filer i root, sen plocka ut style.css
+     * och upp till tre PHP-kandidater (prefererar `<repo>.php` och `index.php`)
+     * och kolla efter `Theme Name:` respektive `Plugin Name:`-header.
+     *
+     * Returnerar `WP_Error` vid 404/401/403/HTTP-fel eller parse-fel,
+     * annars en array:
+     *   - `type` → `'plugin'|'theme'|'both'|'none'`
+     *   - `plugin_name` → string|null
+     *   - `theme_name`  → string|null
+     *
+     * @param string      $repo_url
+     * @param string|null $tag
+     * @return array{type:string,plugin_name:?string,theme_name:?string}|WP_Error
+     */
+    function gitup_detect_repo_component_type($repo_url, $tag = null) {
+        $normalized = gitup_normalize_github_repo_url((string) $repo_url);
+        if ($normalized === '') {
+            return new WP_Error('gitup_invalid_url', __('Invalid repository URL.', 'gitup'));
+        }
+
+        $repo_path = (string) parse_url($normalized, PHP_URL_PATH);
+        if ($repo_path === '') {
+            return new WP_Error('gitup_invalid_url', __('Invalid repository URL.', 'gitup'));
+        }
+
+        $contents_url = 'https://api.github.com/repos' . $repo_path . '/contents';
+        if (is_string($tag) && $tag !== '') {
+            $contents_url .= '?ref=' . rawurlencode($tag);
+        }
+
+        $response = wp_remote_get($contents_url, [
+            'headers'     => gitup_github_headers(),
+            'timeout'     => 15,
+            'redirection' => 3,
+        ]);
+
+        if (is_wp_error($response)) {
+            return new WP_Error(
+                'gitup_detect_http_error',
+                __('Could not reach the GitHub Contents API.', 'gitup')
+            );
+        }
+
+        $code = (int) wp_remote_retrieve_response_code($response);
+        if ($code === 404) {
+            return new WP_Error(
+                'gitup_detect_not_found',
+                __('Repository or tag could not be found on GitHub.', 'gitup')
+            );
+        }
+        if ($code === 401 || $code === 403) {
+            return new WP_Error(
+                'gitup_detect_auth',
+                __('GitHub returned an authentication or rate-limit error.', 'gitup')
+            );
+        }
+        if ($code < 200 || $code >= 300) {
+            return new WP_Error(
+                'gitup_detect_http_error',
+                __('Unexpected response from the GitHub Contents API.', 'gitup')
+            );
+        }
+
+        $entries = json_decode((string) wp_remote_retrieve_body($response), true);
+        if (!is_array($entries)) {
+            return new WP_Error(
+                'gitup_detect_parse',
+                __('Could not parse the GitHub Contents response.', 'gitup')
+            );
+        }
+
+        $files_at_root = [];
+        foreach ($entries as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+            if (($entry['type'] ?? '') !== 'file') {
+                continue;
+            }
+            $name = (string) ($entry['name'] ?? '');
+            if ($name !== '') {
+                $files_at_root[$name] = true;
+            }
+        }
+
+        $theme_name = null;
+        if (isset($files_at_root['style.css'])) {
+            $content = gitup_install_from_url_fetch_file($repo_path, 'style.css', $tag);
+            if (is_string($content) && preg_match('/^\s*Theme\s*Name\s*:\s*(.+)$/mi', $content, $m)) {
+                $theme_name = trim($m[1]);
+            }
+        }
+
+        $repo_basename = basename($repo_path);
+        $php_candidates = array_filter(array_keys($files_at_root), static function ($name) {
+            return (bool) preg_match('/\.php$/i', (string) $name);
+        });
+
+        usort($php_candidates, static function ($a, $b) use ($repo_basename) {
+            $score = static function ($name) use ($repo_basename) {
+                if (strcasecmp($name, $repo_basename . '.php') === 0) {
+                    return 0;
+                }
+                if (strcasecmp($name, 'index.php') === 0) {
+                    return 1;
+                }
+                return 2;
+            };
+            $sa = $score($a);
+            $sb = $score($b);
+            if ($sa !== $sb) {
+                return $sa - $sb;
+            }
+            return strcasecmp($a, $b);
+        });
+
+        $plugin_name = null;
+        foreach (array_slice($php_candidates, 0, 3) as $php_name) {
+            $content = gitup_install_from_url_fetch_file($repo_path, $php_name, $tag);
+            if (is_string($content) && preg_match('/^[\s\/\*]*Plugin\s*Name\s*:\s*(.+)$/mi', $content, $m)) {
+                $plugin_name = trim($m[1]);
+                break;
+            }
+        }
+
+        $type = 'none';
+        if ($plugin_name !== null && $theme_name !== null) {
+            $type = 'both';
+        } elseif ($plugin_name !== null) {
+            $type = 'plugin';
+        } elseif ($theme_name !== null) {
+            $type = 'theme';
+        }
+
+        return [
+            'type'        => $type,
+            'plugin_name' => $plugin_name,
+            'theme_name'  => $theme_name,
+        ];
+    }
+}
+
+if (!function_exists('gitup_install_from_url_fetch_file')) {
+    /**
+     * Intern hjälpare: hämtar råinnehåll för en enskild fil i ett repo
+     * via Contents-API:t med `Accept: application/vnd.github.raw`.
+     *
+     * Returnerar fil-innehållet vid 200, annars `null` (callern tolkar
+     * "kunde inte avgöra" som "header saknas").
+     *
+     * @param string      $repo_path  Med ledande slash, t.ex. `/owner/repo`.
+     * @param string      $file_path  Filsökväg relativt repo-roten.
+     * @param string|null $tag        Frivillig ref/tag.
+     * @return string|null
+     */
+    function gitup_install_from_url_fetch_file($repo_path, $file_path, $tag = null) {
+        $url = 'https://api.github.com/repos' . $repo_path . '/contents/' . ltrim((string) $file_path, '/');
+        if (is_string($tag) && $tag !== '') {
+            $url .= '?ref=' . rawurlencode($tag);
+        }
+
+        $headers = gitup_github_headers();
+        $headers['Accept'] = 'application/vnd.github.raw';
+
+        $response = wp_remote_get($url, [
+            'headers'     => $headers,
+            'timeout'     => 15,
+            'redirection' => 3,
+        ]);
+
+        if (is_wp_error($response)) {
+            return null;
+        }
+        if ((int) wp_remote_retrieve_response_code($response) !== 200) {
+            return null;
+        }
+
+        $body = wp_remote_retrieve_body($response);
+        return is_string($body) ? $body : null;
+    }
+}
