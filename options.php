@@ -586,9 +586,15 @@ if (!function_exists("gitup_settings_page")) {
         }
         $github_plugins = get_github_plugins($force_refresh);
       ?>
-        <p>
+        <div class="gitup-update-actions" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:1em 0;">
           <a href="<?php echo esc_url($refresh_url); ?>" class="button"><?php echo esc_html__('Refresh list', 'gitup'); ?></a>
-        </p>
+          <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin:0;">
+            <?php $nonce = wp_create_nonce('gitup_clear_cache'); ?>
+            <input type="hidden" name="action" value="gitup_clear_cache">
+            <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce); ?>">
+            <button type="submit" class="button clear-cache"><?php echo esc_html__('Clear GitHub cache', 'gitup'); ?></button>
+          </form>
+        </div>
         <h2 style="margin-top:28px;"><?php esc_html_e('Plugins', 'gitup'); ?></h2>
         <table class="widefat fixed striped gitup-table">
             <thead>
@@ -887,12 +893,6 @@ if (!function_exists("gitup_settings_page")) {
           <h2 class="hndle"><span><?php esc_html_e('Tools', 'gitup'); ?></span></h2>
           <div class="inside">
             <div class="gitup-tools" style="display:flex; gap:12px; flex-wrap:wrap;">
-              <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin:0;">
-                <?php $nonce = wp_create_nonce('gitup_clear_cache'); ?>
-                <input type="hidden" name="action" value="gitup_clear_cache">
-                <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce); ?>">
-                <button type="submit" class="button clear-cache"><?php echo esc_html__('Clear GitHub cache', 'gitup'); ?></button>
-              </form>
               <div>
                 <button type="button" id="gitup-test-ajax" class="button test-connection"><?php echo esc_html__('Test GitHub connection', 'gitup'); ?></button>
                 <span id="gitup-test-ajax-status" style="margin-left:8px;"></span>
@@ -1388,9 +1388,9 @@ add_action('admin_post_gitup_clear_cache', function() {
   }
   check_admin_referer('gitup_clear_cache');
   gitup_clear_github_cache();
-  // Redirect tillbaka till settings med notice
+  // Redirect tillbaka till uppdateringsfliken med notice
   $redirect_url = gitup_get_settings_page_url([
-    'tab' => 'settings',
+    'tab' => 'updates',
     'gitup_cache_cleared' => '1'
   ]);
   wp_safe_redirect($redirect_url);

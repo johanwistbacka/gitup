@@ -1,5 +1,5 @@
 # GitUp
-> **Version:** 2026.05.22.03-beta
+> **Version:** 2026.06.22.01-beta
  Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.
 
 # GitUp
