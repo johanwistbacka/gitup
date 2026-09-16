@@ -6,6 +6,14 @@ final class GitupPluginUpgradeHooksTest extends GitupTestCase
 {
     private array $tempPaths = [];
 
+    public function tearDown(): void
+    {
+        foreach (array_reverse($this->tempPaths) as $path) {
+            $this->removeDirectory($path);
+        }
+        $this->tempPaths = [];
+    }
+
     public function test_source_selection_keeps_top_level_plugin_directory_when_main_file_exists(): void
     {
         $source = $this->makeTempDir('plugin-source-top');

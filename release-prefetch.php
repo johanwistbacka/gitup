@@ -55,7 +55,7 @@ if (!function_exists('gitup_get_cached_releases')) {
 
 if (!function_exists('gitup_get_tracked_repos')) {
     /**
-     * Samlar plugins och teman som har en `UpdateURI` (eller `ThemeURI`) som
+     * Samlar plugins och teman som har en `UpdateURI` som
      * pekar på GitHub. Returnerar en flat lista som lazy-load-rendern och
      * prefetch-workern itererar över.
      *

@@ -1,0 +1,173 @@
+--- a/options.php
++++ b/options.php
+@@ -1253,6 +1253,36 @@
+   gitup_clear_github_cache();
+ }, 10, 2);
+ 
++if (!function_exists('gitup_reactivate_plugin_after_release_install')) {
++  function gitup_reactivate_plugin_after_release_install($plugin, $was_active) {
++    if (!$was_active || is_plugin_active($plugin)) {
++      return true;
++    }
++
++    $activation_result = activate_plugin($plugin, '', false, true);
++    if (is_wp_error($activation_result)) {
++      return new WP_Error(
++        'gitup_plugin_reactivation_failed',
++        sprintf(
++          /* translators: %s: WordPress plugin activation error message. */
++          __('The selected release was installed, but the plugin could not be reactivated: %s', 'gitup'),
++          $activation_result->get_error_message()
++        ),
++        $activation_result
++      );
++    }
++
++    if (!is_plugin_active($plugin)) {
++      return new WP_Error(
++        'gitup_plugin_reactivation_failed',
++        __('The selected release was installed, but the plugin could not be reactivated.', 'gitup')
++      );
++    }
++
++    return true;
++  }
++}
++
+ // Admin-post handler: installera vald release-tag för ett plugin
+ add_action('admin_post_gitup_install_release', function () {
+   if (!current_user_can('update_plugins')) {
+@@ -1287,8 +1317,11 @@
+   remove_filter('upgrader_package_options', $package_options_filter);
+ 
+   // Försök reaktivera om det var aktivt innan
+-  if ($result && !is_wp_error($result) && $was_active && !is_plugin_active($plugin)) {
+-    activate_plugin($plugin, '', false, true);
++  if ($result && !is_wp_error($result)) {
++    $reactivation_result = gitup_reactivate_plugin_after_release_install($plugin, $was_active);
++    if (is_wp_error($reactivation_result)) {
++      $result = $reactivation_result;
++    }
+   }
+ 
+   if ($result && !is_wp_error($result)) {
+--- a/tests/bootstrap.php
++++ b/tests/bootstrap.php
+@@ -38,6 +38,10 @@
+ $GLOBALS['gitup_test_installed_plugins'] = [];
+ $GLOBALS['gitup_test_installed_themes'] = [];
+ $GLOBALS['gitup_test_sent_mail'] = [];
++$GLOBALS['gitup_test_active_plugins'] = [];
++$GLOBALS['gitup_test_activate_plugin_result'] = null;
++$GLOBALS['gitup_test_activate_plugin_marks_active'] = true;
++$GLOBALS['gitup_test_activate_plugin_calls'] = [];
+ 
+ function add_filter($hook_name, $callback, $priority = 10, $accepted_args = 1) {
+     $GLOBALS['gitup_test_hooks'][$hook_name][$priority][] = [
+@@ -271,6 +275,28 @@
+ 
+ function get_plugins() {
+     return $GLOBALS['gitup_test_installed_plugins'];
++}
++
++function is_plugin_active($plugin) {
++    return in_array($plugin, $GLOBALS['gitup_test_active_plugins'], true);
++}
++
++function activate_plugin($plugin, $redirect = '', $network_wide = false, $silent = false) {
++    $GLOBALS['gitup_test_activate_plugin_calls'][] = [
++        'plugin' => $plugin,
++        'redirect' => $redirect,
++        'network_wide' => $network_wide,
++        'silent' => $silent,
++    ];
++
++    $result = $GLOBALS['gitup_test_activate_plugin_result'];
++    if (!is_wp_error($result) && $GLOBALS['gitup_test_activate_plugin_marks_active']) {
++        if (!in_array($plugin, $GLOBALS['gitup_test_active_plugins'], true)) {
++            $GLOBALS['gitup_test_active_plugins'][] = $plugin;
++        }
++    }
++
++    return $result;
+ }
+ 
+ function wp_get_themes() {
+@@ -384,6 +410,10 @@
+     $GLOBALS['gitup_test_installed_themes'] = [];
+     $GLOBALS['gitup_test_sent_mail'] = [];
+     $GLOBALS['gitup_test_denied_caps'] = [];
++    $GLOBALS['gitup_test_active_plugins'] = [];
++    $GLOBALS['gitup_test_activate_plugin_result'] = null;
++    $GLOBALS['gitup_test_activate_plugin_marks_active'] = true;
++    $GLOBALS['gitup_test_activate_plugin_calls'] = [];
+ }
+ 
+ function gitup_test_queue_http_response(string $url, $response): void {
+--- a/tests/GitupPluginReactivationTest.php
++++ b/tests/GitupPluginReactivationTest.php
+@@ -0,0 +1,64 @@
++<?php
++
++declare(strict_types=1);
++
++final class GitupPluginReactivationTest extends GitupTestCase
++{
++    private const PLUGIN = 'example/example.php';
++
++    public function test_inactive_plugin_is_not_activated(): void
++    {
++        $result = gitup_reactivate_plugin_after_release_install(self::PLUGIN, false);
++
++        $this->assertTrue($result);
++        $this->assertCount(0, $GLOBALS['gitup_test_activate_plugin_calls']);
++    }
++
++    public function test_plugin_that_remains_active_is_not_activated_again(): void
++    {
++        $GLOBALS['gitup_test_active_plugins'] = [self::PLUGIN];
++
++        $result = gitup_reactivate_plugin_after_release_install(self::PLUGIN, true);
++
++        $this->assertTrue($result);
++        $this->assertCount(0, $GLOBALS['gitup_test_activate_plugin_calls']);
++    }
++
++    public function test_previously_active_plugin_is_reactivated(): void
++    {
++        $result = gitup_reactivate_plugin_after_release_install(self::PLUGIN, true);
++
++        $this->assertTrue($result);
++        $this->assertTrue(is_plugin_active(self::PLUGIN));
++        $this->assertCount(1, $GLOBALS['gitup_test_activate_plugin_calls']);
++    }
++
++    public function test_activation_error_is_returned_as_partial_failure(): void
++    {
++        $activation_error = new WP_Error('plugin_error', 'Test activation failure.');
++        $GLOBALS['gitup_test_activate_plugin_result'] = $activation_error;
++
++        $result = gitup_reactivate_plugin_after_release_install(self::PLUGIN, true);
++
++        $this->assertTrue(is_wp_error($result));
++        $this->assertSame('gitup_plugin_reactivation_failed', $result->get_error_code());
++        $this->assertStringContainsString('could not be reactivated', $result->get_error_message());
++        $this->assertStringContainsString('Test activation failure.', $result->get_error_message());
++        $this->assertSame($activation_error, $result->get_error_data());
++        $this->assertFalse(is_plugin_active(self::PLUGIN));
++        $this->assertCount(1, $GLOBALS['gitup_test_activate_plugin_calls']);
++    }
++
++    public function test_inactive_state_after_successful_activation_call_is_reported(): void
++    {
++        $GLOBALS['gitup_test_activate_plugin_marks_active'] = false;
++
++        $result = gitup_reactivate_plugin_after_release_install(self::PLUGIN, true);
++
++        $this->assertTrue(is_wp_error($result));
++        $this->assertSame('gitup_plugin_reactivation_failed', $result->get_error_code());
++        $this->assertStringContainsString('could not be reactivated', $result->get_error_message());
++        $this->assertFalse(is_plugin_active(self::PLUGIN));
++        $this->assertCount(1, $GLOBALS['gitup_test_activate_plugin_calls']);
++    }
++}

@@ -12,6 +12,14 @@ final class GitupThemeUpgradeHooksTest extends GitupTestCase
         $GLOBALS['gitup_test_theme_root'] = $this->makeTempDir('themes-root');
     }
 
+    public function tearDown(): void
+    {
+        foreach (array_reverse($this->tempPaths) as $path) {
+            $this->removeDirectory($path);
+        }
+        $this->tempPaths = [];
+    }
+
     public function test_find_theme_root_directory_prefers_expected_stylesheet(): void
     {
         $source = $this->makeTempDir('source');

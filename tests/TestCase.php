@@ -9,6 +9,30 @@ abstract class GitupTestCase
         gitup_test_reset_state();
     }
 
+    public function tearDown(): void
+    {
+    }
+
+    protected function removeDirectory(string $path): void
+    {
+        if (!file_exists($path)) {
+            return;
+        }
+
+        if (is_link($path) || is_file($path)) {
+            unlink($path);
+            return;
+        }
+
+        foreach (scandir($path) ?: [] as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+            $this->removeDirectory($path . DIRECTORY_SEPARATOR . $entry);
+        }
+        rmdir($path);
+    }
+
     protected function assertSame($expected, $actual, string $message = ''): void
     {
         if ($expected !== $actual) {

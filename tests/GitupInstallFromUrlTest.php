@@ -663,9 +663,8 @@ final class GitupInstallFromUrlTest extends GitupTestCase
         $this->assertTrue($result['matches']);
     }
 
-    public function test_check_update_uri_header_returns_match_for_theme_with_only_theme_uri(): void
+    public function test_check_update_uri_header_returns_no_match_for_theme_with_only_theme_uri(): void
     {
-        // gitup_get_theme_repo_url falls back to ThemeURI, so this counts as covered.
         $GLOBALS['gitup_test_installed_themes']['my-theme'] = new GitupTestTheme([
             'UpdateURI' => '',
             'ThemeURI'  => 'https://github.com/owner/my-theme',
@@ -677,7 +676,8 @@ final class GitupInstallFromUrlTest extends GitupTestCase
             'https://github.com/owner/my-theme'
         );
 
-        $this->assertTrue($result['matches']);
+        $this->assertFalse($result['matches']);
+        $this->assertSame('', $result['detected_repo']);
     }
 
     public function test_check_update_uri_header_returns_no_match_for_theme_with_no_header(): void

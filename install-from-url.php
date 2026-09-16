@@ -167,6 +167,7 @@ if (!function_exists('gitup_detect_repo_component_type')) {
         }
 
         $response = wp_remote_get($contents_url, [
+            'gitup_request' => true,
             'headers'     => gitup_github_headers(),
             'timeout'     => 15,
             'redirection' => 3,
@@ -317,6 +318,7 @@ if (!function_exists('gitup_install_from_url_fetch_file')) {
         }
 
         $response = wp_remote_get($url, [
+            'gitup_request' => true,
             'headers'     => gitup_github_headers(),
             'timeout'     => 15,
             'redirection' => 3,
@@ -711,10 +713,9 @@ if (!function_exists('gitup_install_from_url_check_update_uri_header')) {
      * Kollar om en nyinstallerad komponent (plugin eller tema) har en
      * `Update URI`-header som matchar det repo vi installerade från.
      *
-     * För plugins krävs `UpdateURI` exakt — det är vad WordPress matchar
-     * sin updates-routing på. För teman accepteras även `ThemeURI` som
-     * fallback, eftersom GitUps egna update-detection (`gitup_get_theme_repo_url`)
-     * gör samma fallback i den vanliga update-rundan.
+     * För både plugins och teman krävs `UpdateURI` exakt. Det gör att en
+     * vanlig projekt- eller demosida i `PluginURI`/`ThemeURI` aldrig blir
+     * en implicit källa för paketinstallationer.
      *
      * Resultatet används för att förlänga success-noticen med en varning
      * när framtida uppdateringar inte kommer kunna skötas av GitUp utan
@@ -893,7 +894,7 @@ add_action('admin_post_gitup_install_from_url_preview', function () {
     $result = gitup_run_install_from_url_preview($url);
     if (is_wp_error($result)) {
         if (function_exists('gitup_log')) {
-            gitup_log('install-from-url preview failed: ' . $result->get_error_code() . ' for input "' . $url . '"');
+            gitup_log('install-from-url preview failed: ' . $result->get_error_code());
         }
         // Bevara användarens råa input så att fältet inte töms vid felmeddelandet.
         set_transient(
@@ -942,6 +943,18 @@ add_action('admin_post_gitup_install_from_url_preview', function () {
     exit;
 });
 
+add_action('admin_post_gitup_install_from_url_reset', function () {
+    $allowed = gitup_install_from_url_can_install('any');
+    if (is_wp_error($allowed)) {
+        wp_die(esc_html($allowed->get_error_message()));
+    }
+
+    check_admin_referer('gitup_install_from_url_reset');
+    delete_transient(gitup_install_from_url_preview_transient_key());
+    wp_safe_redirect(gitup_get_settings_page_url(['tab' => 'install']));
+    exit;
+});
+
 if (!function_exists('gitup_render_install_from_url_tab')) {
     /**
      * Renderar fliken "Install from URL" på GitUps options-sida.
@@ -960,11 +973,6 @@ if (!function_exists('gitup_render_install_from_url_tab')) {
             return;
         }
 
-        // Möjlighet att börja om: ?tab=install&reset=1
-        if (!empty($_GET['reset'])) {
-            delete_transient(gitup_install_from_url_preview_transient_key());
-        }
-
         $preview = get_transient(gitup_install_from_url_preview_transient_key());
         if (function_exists('gitup_log') && !empty($_GET['previewed'])) {
             gitup_log(sprintf(
@@ -975,7 +983,7 @@ if (!function_exists('gitup_render_install_from_url_tab')) {
         }
         $action_url    = admin_url('admin-post.php');
         $preview_nonce = wp_create_nonce('gitup_install_from_url_preview');
-        $reset_url     = gitup_get_settings_page_url(['tab' => 'install', 'reset' => '1']);
+        $reset_nonce   = wp_create_nonce('gitup_install_from_url_reset');
         $url_value     = is_array($preview) && !empty($preview['url_input']) ? (string) $preview['url_input'] : '';
         $has_full_preview = is_array($preview) && !empty($preview['repo_url']) && !empty($preview['tag_used']);
         ?>
@@ -992,11 +1000,15 @@ if (!function_exists('gitup_render_install_from_url_tab')) {
             </p>
             <p>
               <button type="submit" class="button button-primary"><?php esc_html_e('Inspect repository', 'gitup'); ?></button>
-              <?php if ($url_value !== '') : ?>
-                <a href="<?php echo esc_url($reset_url); ?>" class="button" style="margin-left:8px;"><?php esc_html_e('Clear', 'gitup'); ?></a>
-              <?php endif; ?>
             </p>
           </form>
+          <?php if ($url_value !== '') : ?>
+            <form method="post" action="<?php echo esc_url($action_url); ?>" style="margin-top:-44px; margin-left:145px; margin-bottom:20px;">
+              <input type="hidden" name="action" value="gitup_install_from_url_reset">
+              <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($reset_nonce); ?>">
+              <button type="submit" class="button"><?php esc_html_e('Clear', 'gitup'); ?></button>
+            </form>
+          <?php endif; ?>
 
           <?php if ($has_full_preview) : ?>
             <hr style="margin:24px 0;">
@@ -1076,7 +1088,7 @@ if (!function_exists('gitup_render_install_from_url_tab')) {
               <p><em><?php esc_html_e('No install button is shown because this repository does not look like a WordPress plugin or theme. Double-check the URL or pick a different release.', 'gitup'); ?></em></p>
             <?php endif; ?>
 
-            <p>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
               <?php if ($show_plugin_button) : ?>
                 <form method="post" action="<?php echo esc_url($action_url); ?>" style="display:inline-block; margin-right:8px;">
                   <input type="hidden" name="action" value="gitup_install_from_url_confirm">
@@ -1099,8 +1111,12 @@ if (!function_exists('gitup_render_install_from_url_tab')) {
                 </form>
               <?php endif; ?>
 
-              <a href="<?php echo esc_url($reset_url); ?>" class="button"><?php esc_html_e('Inspect another repository', 'gitup'); ?></a>
-            </p>
+              <form method="post" action="<?php echo esc_url($action_url); ?>" style="display:inline-block;">
+                <input type="hidden" name="action" value="gitup_install_from_url_reset">
+                <input type="hidden" name="_wpnonce" value="<?php echo esc_attr($reset_nonce); ?>">
+                <button type="submit" class="button"><?php esc_html_e('Inspect another repository', 'gitup'); ?></button>
+              </form>
+            </div>
           <?php endif; ?>
         </div>
         <?php

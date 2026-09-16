@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 final class GitupHttpHooksTest extends GitupTestCase
 {
-    public function test_http_request_args_adds_github_headers_for_api_requests(): void
+    public function test_github_headers_include_saved_token_for_explicit_gitup_requests(): void
     {
         update_option('gitup_github_token', 'secret-token');
 
-        $args = apply_filters('http_request_args', ['headers' => []], 'https://api.github.com/repos/Ratt-Grafiska/gitup/releases/latest');
+        $headers = gitup_github_headers();
 
-        $this->assertSame('WordPress Plugin', $args['headers']['User-Agent']);
-        $this->assertSame('Bearer secret-token', $args['headers']['Authorization']);
-        $this->assertSame('application/vnd.github+json', $args['headers']['Accept']);
+        $this->assertSame('WordPress Plugin', $headers['User-Agent']);
+        $this->assertSame('Bearer secret-token', $headers['Authorization']);
+        $this->assertSame('application/vnd.github+json', $headers['Accept']);
     }
 
     public function test_http_request_args_leaves_non_github_requests_unchanged(): void
@@ -30,7 +30,10 @@ final class GitupHttpHooksTest extends GitupTestCase
             'response' => ['code' => 200],
             'headers' => [],
             'body' => '{}',
-        ], [], 'https://api.github.com/repos/Ratt-Grafiska/gitup/releases/latest');
+    ], [
+        'gitup_request' => true,
+        'headers' => ['authorization' => 'Bearer secret-token'],
+    ], 'https://api.github.com/repos/Ratt-Grafiska/gitup/releases/latest');
 
         $status = get_option('gitup_token_status');
         $this->assertSame('valid', $status['status']);
@@ -46,10 +49,47 @@ final class GitupHttpHooksTest extends GitupTestCase
             'response' => ['code' => 401],
             'headers' => [],
             'body' => '{}',
-        ], [], 'https://api.github.com/repos/Ratt-Grafiska/gitup/releases/latest');
+    ], [
+        'gitup_request' => true,
+        'headers' => ['Authorization' => 'Bearer secret-token'],
+    ], 'https://api.github.com/repos/Ratt-Grafiska/gitup/releases/latest');
 
         $status = get_option('gitup_token_status');
-        $this->assertSame('invalid', $status['status']);
-        $this->assertSame([], $GLOBALS['gitup_test_sent_mail']);
+    $this->assertSame('invalid', $status['status']);
+    $this->assertSame([], $GLOBALS['gitup_test_sent_mail']);
+}
+
+public function test_http_response_does_not_validate_token_from_unauthenticated_200(): void
+{
+    update_option('gitup_github_token', 'secret-token');
+    $existing_status = [
+        'status' => 'invalid',
+        'last_checked' => 123,
+        'url' => 'https://api.github.com/repos/Ratt-Grafiska/gitup/releases/latest',
+    ];
+    update_option('gitup_token_status', $existing_status);
+    update_option('gitup_token_last_verified', 123);
+
+    apply_filters('http_response', [
+        'response' => ['code' => 200],
+        'headers' => [],
+        'body' => '{}',
+    ], ['gitup_request' => true], 'https://api.github.com/repos/Ratt-Grafiska/gitup/releases/latest');
+
+    $this->assertSame($existing_status, get_option('gitup_token_status'));
+    $this->assertSame(123, get_option('gitup_token_last_verified'));
+}
+
+    public function test_http_response_ignores_other_components_github_requests(): void
+    {
+        update_option('gitup_github_token', 'secret-token');
+
+        apply_filters('http_response', [
+            'response' => ['code' => 401],
+            'headers' => [],
+            'body' => '{}',
+        ], [], 'https://api.github.com/repos/other/plugin/releases/latest');
+
+        $this->assertFalse(get_option('gitup_token_status'));
     }
 }

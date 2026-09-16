@@ -125,6 +125,9 @@ if (!function_exists('gitup_prepare_plugin_release_install')) {
     if (empty($plugins[$plugin])) {
       return new WP_Error('gitup_plugin_not_found', __('Plugin not found.', 'gitup'));
     }
+    if (!function_exists('gitup_get_plugin_directory') || gitup_get_plugin_directory($plugin) === '') {
+      return new WP_Error('gitup_plugin_layout_unsupported', __('Root-level single-file plugins cannot be updated safely by GitUp.', 'gitup'));
+    }
 
     $plugin_info = $plugins[$plugin];
     $repo_url = function_exists('gitup_get_plugin_repo_url') ? gitup_get_plugin_repo_url($plugin_info) : '';
@@ -180,7 +183,10 @@ if (!function_exists('gitup_build_plugin_package_options_filter')) {
     return function ($options) use ($plugin) {
       $options['hook_extra']['plugin'] = $plugin;
       if (defined('WP_PLUGIN_DIR')) {
-        $expected_dir = dirname($plugin);
+        $expected_dir = function_exists('gitup_get_plugin_directory') ? gitup_get_plugin_directory($plugin) : '';
+        if ($expected_dir === '') {
+          return $options;
+        }
         $plugins_dir = trailingslashit(WP_PLUGIN_DIR);
         $options['destination'] = trailingslashit($plugins_dir . $expected_dir);
         $options['destination_name'] = $expected_dir;
@@ -377,6 +383,7 @@ if (!function_exists('gitup_repo_visibility')) {
       'Accept'     => 'application/vnd.github+json',
     ];
     $resp = wp_remote_get($api_url, [
+      'gitup_request' => true,
       'headers'     => $headers,
       'timeout'     => 10,
       'redirection' => 2,
@@ -384,7 +391,7 @@ if (!function_exists('gitup_repo_visibility')) {
     if (!is_wp_error($resp)) {
       $code = (int) wp_remote_retrieve_response_code($resp);
       // Insert debug log line here
-      gitup_log('[repo_visibility] URL: ' . $api_url . ' code: ' . $code . ' body: ' . substr(wp_remote_retrieve_body($resp), 0, 200));
+      gitup_log('[repo_visibility] response code: ' . $code);
       if ($code === 200) {
         $body_json = json_decode(wp_remote_retrieve_body($resp), true);
         if (is_array($body_json) && array_key_exists('private', $body_json)) {
@@ -408,13 +415,14 @@ if (!function_exists('gitup_repo_visibility')) {
     if (!empty($token)) {
       $headers['Authorization'] = 'Bearer ' . $token;
       $resp2 = wp_remote_get($api_url, [
+        'gitup_request' => true,
         'headers'     => $headers,
         'timeout'     => 10,
         'redirection' => 2,
       ]);
       if (!is_wp_error($resp2)) {
         $code2 = (int) wp_remote_retrieve_response_code($resp2);
-        gitup_log('[repo_visibility] URL: ' . $api_url . ' code: ' . $code2 . ' body: ' . substr(wp_remote_retrieve_body($resp2), 0, 200));
+        gitup_log('[repo_visibility] authenticated response code: ' . $code2);
         if ($code2 === 200) {
           $body_json = json_decode(wp_remote_retrieve_body($resp2), true);
           if (is_array($body_json) && array_key_exists('private', $body_json)) {
@@ -546,8 +554,11 @@ if (!function_exists("gitup_settings_page")) {
   {
     // Determine active tab
     $active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'updates';
-    // For refresh logic, only applies to updates tab
-    $force_refresh = ($active_tab === 'updates' && isset($_GET['gitup_refresh']));
+    $force_refresh = false;
+    $can_manage_settings = current_user_can('manage_options');
+    if ($active_tab === 'settings' && !$can_manage_settings) {
+      wp_die(__('You do not have permission to manage GitUp credentials.', 'gitup'));
+    }
 
     // For nav tab links
     $base_url = admin_url('tools.php?page=gitup-settings');
@@ -567,15 +578,14 @@ if (!function_exists("gitup_settings_page")) {
       <h2 class="nav-tab-wrapper" style="margin-bottom:20px;">
         <a href="<?php echo esc_url($updates_url); ?>" class="nav-tab<?php if ($active_tab === 'updates') echo ' nav-tab-active'; ?>"><?php esc_html_e('Updates', 'gitup'); ?></a>
         <a href="<?php echo esc_url($install_url); ?>" class="nav-tab<?php if ($active_tab === 'install') echo ' nav-tab-active'; ?>"><?php esc_html_e('Install from URL', 'gitup'); ?></a>
-        <a href="<?php echo esc_url($settings_url); ?>" class="nav-tab<?php if ($active_tab === 'settings') echo ' nav-tab-active'; ?>"><?php esc_html_e('Settings', 'gitup'); ?></a>
+        <?php if ($can_manage_settings) : ?>
+          <a href="<?php echo esc_url($settings_url); ?>" class="nav-tab<?php if ($active_tab === 'settings') echo ' nav-tab-active'; ?>"><?php esc_html_e('Settings', 'gitup'); ?></a>
+        <?php endif; ?>
       </h2>
       <?php
       // === Render admin notices INSIDE tab containers, directly after nav tabs ===
       if ($active_tab === 'updates') :
-        // Build a refresh URL that toggles gitup_refresh=1 and keeps tab=updates
-        $refresh_url = add_query_arg(['tab' => 'updates', 'gitup_refresh' => '1'], $base_url);
-        // Show force refresh notice (if any)
-        if ($force_refresh) {
+        if (!empty($_GET['gitup_refreshed'])) {
           echo '<div class="updated notice"><p>' . esc_html__('List refreshed from GitHub (cache bypassed).', 'gitup') . '</p></div>';
         }
         // Show admin notices for updates tab (from gitup_msg in URL)
@@ -587,7 +597,11 @@ if (!function_exists("gitup_settings_page")) {
         $github_plugins = get_github_plugins($force_refresh);
       ?>
         <div class="gitup-update-actions" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:1em 0;">
-          <a href="<?php echo esc_url($refresh_url); ?>" class="button"><?php echo esc_html__('Refresh list', 'gitup'); ?></a>
+          <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin:0;">
+            <input type="hidden" name="action" value="gitup_refresh">
+            <input type="hidden" name="_wpnonce" value="<?php echo esc_attr(wp_create_nonce('gitup_refresh')); ?>">
+            <button type="submit" class="button"><?php echo esc_html__('Refresh list', 'gitup'); ?></button>
+          </form>
           <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin:0;">
             <?php $nonce = wp_create_nonce('gitup_clear_cache'); ?>
             <input type="hidden" name="action" value="gitup_clear_cache">
@@ -1013,8 +1027,24 @@ function get_latest_github_release($repo_url, $is_private = false, $force_refres
  * (Beta-branch-fältet är kvarkommenterat men lämnat för framtida bruk.)
  */
 
+if (!function_exists('gitup_sanitize_github_token')) {
+  function gitup_sanitize_github_token($value) {
+    $current = (string) get_option('gitup_github_token', '');
+    if (!current_user_can('manage_options')) {
+      return $current;
+    }
+    if (!empty($_POST['gitup_remove_github_token'])) {
+      return '';
+    }
+    if (!is_string($value) || trim($value) === '') {
+      return $current;
+    }
+    return sanitize_text_field($value);
+  }
+}
+
 add_action("admin_init", function () {
-  register_setting("gitup_settings_group", "gitup_github_token");
+  register_setting("gitup_settings_group", "gitup_github_token", ['sanitize_callback' => 'gitup_sanitize_github_token']);
   add_settings_section(
     "gitup_settings_section",
     "GitHub API settings",
@@ -1028,10 +1058,17 @@ add_action("admin_init", function () {
     "gitup_github_token",
     "GitHub Token",
     function () {
-      $token = get_option("gitup_github_token", "");
-      echo '<input type="password" name="gitup_github_token" value="' .
-        esc_attr($token) .
-        '" class="regular-text" autocomplete="off" placeholder="ghp_...">';
+      if (!current_user_can('manage_options')) {
+        return;
+      }
+      $has_token = get_option("gitup_github_token", "") !== '';
+      $placeholder = $has_token
+        ? __('Token is configured. Enter a new token to replace it.', 'gitup')
+        : __('Enter a GitHub token.', 'gitup');
+      echo '<input type="password" name="gitup_github_token" value="" class="regular-text" autocomplete="new-password" placeholder="' . esc_attr($placeholder) . '">';
+      if ($has_token) {
+        echo '<p><label><input type="checkbox" name="gitup_remove_github_token" value="1"> ' . esc_html__('Remove the saved token', 'gitup') . '</label></p>';
+      }
 
       // Statusrad: senast verifierad (via http_response 200) och senast uppdaterad (när option ändrades)
       $last_verified_ts = (int) get_option('gitup_token_last_verified');
@@ -1130,6 +1167,7 @@ add_action('admin_post_test_github_token', function () {
       'Authorization' => 'Bearer ' . $token,
     ]
   ];
+  $args['gitup_request'] = true;
   $response = wp_remote_get('https://api.github.com/user', $args);
 
   if (is_wp_error($response)) {
@@ -1180,6 +1218,7 @@ add_action('wp_ajax_gitup_test_github_token', function(){
       'Authorization' => 'Bearer ' . $token,
     ]
   ];
+  $args['gitup_request'] = true;
   $response = wp_remote_get('https://api.github.com/user', $args);
   if (is_wp_error($response)) {
     wp_send_json_error(['message' => __('Connection error: ', 'gitup') . $response->get_error_message()], 500);
@@ -1213,6 +1252,36 @@ add_action('update_option_gitup_github_token', function ($old, $new) {
   update_option('gitup_token_last_updated', time());
   gitup_clear_github_cache();
 }, 10, 2);
+
+if (!function_exists('gitup_reactivate_plugin_after_release_install')) {
+  function gitup_reactivate_plugin_after_release_install($plugin, $was_active) {
+    if (!$was_active || is_plugin_active($plugin)) {
+      return true;
+    }
+
+    $activation_result = activate_plugin($plugin, '', false, true);
+    if (is_wp_error($activation_result)) {
+      return new WP_Error(
+        'gitup_plugin_reactivation_failed',
+        sprintf(
+          /* translators: %s: WordPress plugin activation error message. */
+          __('The selected release was installed, but the plugin could not be reactivated: %s', 'gitup'),
+          $activation_result->get_error_message()
+        ),
+        $activation_result
+      );
+    }
+
+    if (!is_plugin_active($plugin)) {
+      return new WP_Error(
+        'gitup_plugin_reactivation_failed',
+        __('The selected release was installed, but the plugin could not be reactivated.', 'gitup')
+      );
+    }
+
+    return true;
+  }
+}
 
 // Admin-post handler: installera vald release-tag för ett plugin
 add_action('admin_post_gitup_install_release', function () {
@@ -1248,8 +1317,11 @@ add_action('admin_post_gitup_install_release', function () {
   remove_filter('upgrader_package_options', $package_options_filter);
 
   // Försök reaktivera om det var aktivt innan
-  if ($result && !is_wp_error($result) && $was_active && !is_plugin_active($plugin)) {
-    activate_plugin($plugin, '', false, true);
+  if ($result && !is_wp_error($result)) {
+    $reactivation_result = gitup_reactivate_plugin_after_release_install($plugin, $was_active);
+    if (is_wp_error($reactivation_result)) {
+      $result = $reactivation_result;
+    }
   }
 
   if ($result && !is_wp_error($result)) {
@@ -1394,6 +1466,16 @@ add_action('admin_post_gitup_clear_cache', function() {
     'gitup_cache_cleared' => '1'
   ]);
   wp_safe_redirect($redirect_url);
+  exit;
+});
+
+add_action('admin_post_gitup_refresh', function() {
+  if (!current_user_can('update_core')) {
+    wp_die(__('You do not have permission.', 'gitup'));
+  }
+  check_admin_referer('gitup_refresh');
+  gitup_clear_github_cache();
+  wp_safe_redirect(gitup_get_settings_page_url(['tab' => 'updates', 'gitup_refreshed' => '1']));
   exit;
 });
 if (!function_exists('gitup_token_valid')) {

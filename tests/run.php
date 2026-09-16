@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+if (PHP_SAPI !== 'cli') {
+    http_response_code(404);
+    exit;
+}
+
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/TestCase.php';
 
@@ -29,15 +34,29 @@ foreach ($classes as $class) {
         $instance = $reflection->newInstance();
         $label = $reflection->getShortName() . '::' . $method->getName();
 
+        $testError = null;
         try {
             $instance->setUp();
             $method->invoke($instance);
+        } catch (Throwable $e) {
+            $testError = $e;
+        }
+
+        try {
+            $instance->tearDown();
+        } catch (Throwable $e) {
+            if ($testError === null) {
+                $testError = $e;
+            }
+        }
+
+        if ($testError === null) {
             $results['passed']++;
             echo "PASS {$label}\n";
-        } catch (Throwable $e) {
+        } else {
             $results['failed']++;
             echo "FAIL {$label}\n";
-            echo '  ' . $e->getMessage() . "\n";
+            echo '  ' . $testError->getMessage() . "\n";
         }
     }
 }

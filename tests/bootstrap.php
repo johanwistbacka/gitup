@@ -29,6 +29,7 @@ if (!defined('WP_DEBUG')) {
 $GLOBALS['gitup_test_hooks'] = [];
 $GLOBALS['gitup_test_options'] = [];
 $GLOBALS['gitup_test_transients'] = [];
+$GLOBALS['gitup_test_site_transients'] = [];
 $GLOBALS['gitup_test_http_responses'] = [];
 $GLOBALS['gitup_test_http_calls'] = [];
 $GLOBALS['gitup_test_theme_root'] = sys_get_temp_dir() . '/gitup-test-themes';
@@ -37,6 +38,10 @@ $GLOBALS['gitup_test_github_themes'] = [];
 $GLOBALS['gitup_test_installed_plugins'] = [];
 $GLOBALS['gitup_test_installed_themes'] = [];
 $GLOBALS['gitup_test_sent_mail'] = [];
+$GLOBALS['gitup_test_active_plugins'] = [];
+$GLOBALS['gitup_test_activate_plugin_result'] = null;
+$GLOBALS['gitup_test_activate_plugin_marks_active'] = true;
+$GLOBALS['gitup_test_activate_plugin_calls'] = [];
 
 function add_filter($hook_name, $callback, $priority = 10, $accepted_args = 1) {
     $GLOBALS['gitup_test_hooks'][$hook_name][$priority][] = [
@@ -117,6 +122,10 @@ function delete_transient($key) {
     return true;
 }
 
+function get_site_transient($key) {
+    return $GLOBALS['gitup_test_site_transients'][$key] ?? false;
+}
+
 function trailingslashit($value) {
     return rtrim((string) $value, '/\\') . '/';
 }
@@ -153,6 +162,10 @@ function esc_url($url) {
 
 function esc_url_raw($url) {
     return (string) $url;
+}
+
+function wp_parse_url($url, $component = -1) {
+    return parse_url((string) $url, $component);
 }
 
 function esc_html__($text, $domain = null) {
@@ -264,6 +277,28 @@ function get_plugins() {
     return $GLOBALS['gitup_test_installed_plugins'];
 }
 
+function is_plugin_active($plugin) {
+    return in_array($plugin, $GLOBALS['gitup_test_active_plugins'], true);
+}
+
+function activate_plugin($plugin, $redirect = '', $network_wide = false, $silent = false) {
+    $GLOBALS['gitup_test_activate_plugin_calls'][] = [
+        'plugin' => $plugin,
+        'redirect' => $redirect,
+        'network_wide' => $network_wide,
+        'silent' => $silent,
+    ];
+
+    $result = $GLOBALS['gitup_test_activate_plugin_result'];
+    if (!is_wp_error($result) && $GLOBALS['gitup_test_activate_plugin_marks_active']) {
+        if (!in_array($plugin, $GLOBALS['gitup_test_active_plugins'], true)) {
+            $GLOBALS['gitup_test_active_plugins'][] = $plugin;
+        }
+    }
+
+    return $result;
+}
+
 function wp_get_themes() {
     return $GLOBALS['gitup_test_installed_themes'];
 }
@@ -284,6 +319,11 @@ function wp_remote_retrieve_header($response, $header) {
     return $response['headers'][$header] ?? '';
 }
 
+function wp_tempnam($filename = '', $dir = '') {
+    $targetDir = $dir !== '' ? $dir : sys_get_temp_dir();
+    return tempnam($targetDir, 'gitup-download-');
+}
+
 function wp_remote_get($url, $args = []) {
     $GLOBALS['gitup_test_http_calls'][] = ['url' => $url, 'args' => $args];
 
@@ -297,11 +337,17 @@ function wp_remote_get($url, $args = []) {
         if ($queued === []) {
             unset($GLOBALS['gitup_test_http_responses'][$url]);
         }
+        if (!is_wp_error($response) && !empty($args['stream']) && !empty($args['filename'])) {
+            file_put_contents($args['filename'], (string) ($response['body'] ?? ''));
+        }
         return $response;
     }
 
     $response = $queued;
     unset($GLOBALS['gitup_test_http_responses'][$url]);
+    if (!is_wp_error($response) && !empty($args['stream']) && !empty($args['filename'])) {
+        file_put_contents($args['filename'], (string) ($response['body'] ?? ''));
+    }
     return $response;
 }
 
@@ -349,8 +395,11 @@ class GitupTestTheme
 }
 
 function gitup_test_reset_state(): void {
+    $_GET = [];
+    $_POST = [];
     $GLOBALS['gitup_test_options'] = [];
     $GLOBALS['gitup_test_transients'] = [];
+    $GLOBALS['gitup_test_site_transients'] = [];
     $GLOBALS['gitup_test_http_responses'] = [];
     $GLOBALS['gitup_test_http_calls'] = [];
     $GLOBALS['gitup_test_theme_root'] = sys_get_temp_dir() . '/gitup-test-themes';
@@ -361,6 +410,10 @@ function gitup_test_reset_state(): void {
     $GLOBALS['gitup_test_installed_themes'] = [];
     $GLOBALS['gitup_test_sent_mail'] = [];
     $GLOBALS['gitup_test_denied_caps'] = [];
+    $GLOBALS['gitup_test_active_plugins'] = [];
+    $GLOBALS['gitup_test_activate_plugin_result'] = null;
+    $GLOBALS['gitup_test_activate_plugin_marks_active'] = true;
+    $GLOBALS['gitup_test_activate_plugin_calls'] = [];
 }
 
 function gitup_test_queue_http_response(string $url, $response): void {

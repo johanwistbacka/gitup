@@ -1,8 +1,7 @@
 # GitUp
-> **Version:** 2026.06.22.01-beta
- Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.
+> **Version:** 2026.09.15.01-rc
 
-# GitUp
+Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.
 
 En WordPress-plugin som hanterar **automatiska uppdateringar** för plugins och teman via **GitHub Releases**.
 
@@ -123,13 +122,13 @@ GitUp kan även installera plugin eller tema direkt från en GitHub-URL för kom
 
 ### Efter installation
 
-GitUp förlitar sig helt på `Update URI`-headern (eller `ThemeURI` som fallback för teman) för att hantera framtida uppdateringar — det finns ingen sidoregistrering. Saknas headern visas en notis efter installationen som påminner om att lägga till den i komponentens huvudfil, annars kan GitUp inte auto-uppdatera den senare.
+GitUp förlitar sig helt på `Update URI`-headern för att hantera framtida uppdateringar — det finns ingen sidoregistrering. Saknas headern visas en notis efter installationen som påminner om att lägga till den i komponentens huvudfil, annars kan GitUp inte auto-uppdatera den senare.
 
 ## Loggning & Felsökning
 
 När `WP_DEBUG` är på loggar tillägget:
-- Vilka API-anrop som görs
-- Vilka headers som skickas
+- GitUps egna GitHub-anrop och svarskoder
+- Om autentisering användes, utan att logga token eller requestheaders
 - Hittade versioner och jämförelser
 - Eventuella fel vid hämtning eller uppackning
 
@@ -143,7 +142,8 @@ Loggen hittar du i `wp-content/debug.log`.
 
 ## Kända Begränsningar
 
-- Kräver att plugins/teman deklarerar `UpdateURI` i plugin-headern eller `ThemeURI` i `style.css`.
+- Kräver att plugins och teman deklarerar `UpdateURI` i pluginets huvudfil respektive temats `style.css`.
+- Root-level single-file plugins stöds inte, eftersom en säker uppgradering kräver en egen pluginmapp.
 - Endast GitHub-stöd (ej GitLab, Bitbucket etc).
 - Tar alltid första icke-draft release (eller prerelease om tillåtet), inte "latest commit" på branch.
 
@@ -154,6 +154,13 @@ Loggen hittar du i `wp-content/debug.log`.
 - Överväg att begränsa GitHub-anrop till explicita uppdateringsflöden och andra mindre prestandaförbättringar i admin.
 
 ## Changelog
+
+### 2026.09.15.01-rc
+
+- Härdar paketvalidering, destinationsmappar och tokenhantering för GitHub-uppdateringar.
+- Kräver explicit `Update URI`, begränsar PAT till registrerade GitUp-anrop och rensar sparade secrets vid avinstallation.
+- Rapporterar misslyckad återaktivering efter pluginuppgradering och utökar regressionssviten för säkerhets- och uppgraderingsflöden.
+- Exkluderar tester, granskningsunderlag och utvecklingsfiler från releasepaketet.
 
 ### 2026.05.22.03-beta
 - **Fixar svenska översättningen:** `languages/sv_SE.mo` har aldrig kompilerats om sedan rebrandingen från `rg-git-updater` till `gitup`, vilket gjort att alla installerade sajter visat "RG GitUp" i menyn, sidtiteln och plugin-radens namn trots att källkoden sedan länge säger "GitUp". `.po`-filen dedupliceras och `.mo` regenereras från den så att översättningen blir konsekvent med koden.
@@ -260,7 +267,7 @@ MIT – se [LICENSE](LICENSE)
 
 För att göra en release, följ dessa steg:
 
-1. Uppdatera versionsnumret i pluginets huvudfil (`gitup-updater.php`) och i `README.md` under versionstaggen.
+1. Uppdatera versionsnumret i pluginets huvudfil (`index.php`) och i `README.md` under versionstaggen.
 2. Commit:a ändringarna med ett beskrivande meddelande, t.ex. "Bump version to x.y.z".
 3. Skapa en Git-tag med versionsnumret, t.ex. `git tag -a x.y.z -m "Release x.y.z"`.
 4. Pusha både commit och tag till GitHub: `git push origin main --tags`.
