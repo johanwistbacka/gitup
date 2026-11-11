@@ -2,6 +2,8 @@
 * text=auto
 /.gitattributes export-ignore
 /.gitignore export-ignore
+/.github export-ignore
+/.github/** export-ignore
 /.claude export-ignore
 /.claude/** export-ignore
 /README.html export-ignore

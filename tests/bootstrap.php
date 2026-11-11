@@ -135,7 +135,7 @@ function untrailingslashit($value) {
 }
 
 function get_theme_root($stylesheet_or_template = null) {
-    return $GLOBALS['gitup_test_theme_root'];
+    return $GLOBALS['gitup_test_theme_roots'][$stylesheet_or_template ?? ''] ?? $GLOBALS['gitup_test_theme_root'];
 }
 
 function current_user_can($capability) {
@@ -143,11 +143,19 @@ function current_user_can($capability) {
     return !in_array($capability, (array) $denied, true);
 }
 
+function wp_is_file_mod_allowed($context) {
+    return apply_filters('file_mod_allowed', !defined('DISALLOW_FILE_MODS') || !DISALLOW_FILE_MODS, $context);
+}
+
 function admin_url($path = '') {
     return 'https://example.test/wp-admin/' . ltrim((string) $path, '/');
 }
 
-function add_query_arg($args, $url = '') {
+function add_query_arg($args, $url = '', $base_url = '') {
+    if (!is_array($args)) {
+        $args = [$args => $url];
+        $url = $base_url;
+    }
     $query = http_build_query((array) $args);
     if ($query === '') {
         return $url;
@@ -188,6 +196,53 @@ function esc_attr($text) {
     return (string) $text;
 }
 
+function esc_attr__($text, $domain = null) {
+    return $text;
+}
+
+function plugin_dir_url($file) {
+    return 'https://example.test/wp-content/plugins/gitup/';
+}
+
+function settings_errors() {
+}
+
+function settings_fields($group) {
+}
+
+function do_settings_sections($page) {
+}
+
+function submit_button($text, $type = 'primary', $name = 'submit', $wrap = true, $attributes = []) {
+}
+
+function esc_js($text) {
+    return (string) $text;
+}
+
+function wpautop($text) {
+    return (string) $text;
+}
+
+function make_clickable($text) {
+    return (string) $text;
+}
+
+class GitupTestPermissionDenied extends RuntimeException {
+}
+
+class GitupTestRedirect extends RuntimeException {
+}
+
+function wp_die($message) {
+    throw new GitupTestPermissionDenied((string) $message);
+}
+
+function check_admin_referer($action) {
+    $GLOBALS['gitup_test_checked_nonces'][] = $action;
+    return true;
+}
+
 function __($text, $domain = null) {
     return $text;
 }
@@ -221,6 +276,9 @@ function wp_verify_nonce($nonce, $action = -1) {
 
 function wp_safe_redirect($location, $status = 302, $x_redirect_by = 'WordPress') {
     $GLOBALS['gitup_test_last_redirect'] = $location;
+    if (!empty($GLOBALS['gitup_test_throw_on_redirect'])) {
+        throw new GitupTestRedirect((string) $location);
+    }
     return true;
 }
 
@@ -266,10 +324,12 @@ function wp_mail($to, $subject, $message, $headers = '', $attachments = []) {
 }
 
 function get_github_plugins($refresh = false) {
+    $GLOBALS['gitup_test_component_reads'][] = 'plugins';
     return $GLOBALS['gitup_test_github_plugins'];
 }
 
 function get_github_themes($refresh = false) {
+    $GLOBALS['gitup_test_component_reads'][] = 'themes';
     return $GLOBALS['gitup_test_github_themes'];
 }
 
@@ -402,7 +462,11 @@ function gitup_test_reset_state(): void {
     $GLOBALS['gitup_test_site_transients'] = [];
     $GLOBALS['gitup_test_http_responses'] = [];
     $GLOBALS['gitup_test_http_calls'] = [];
+    $GLOBALS['gitup_test_component_reads'] = [];
+    $GLOBALS['gitup_test_checked_nonces'] = [];
+    $GLOBALS['gitup_test_throw_on_redirect'] = false;
     $GLOBALS['gitup_test_theme_root'] = sys_get_temp_dir() . '/gitup-test-themes';
+    $GLOBALS['gitup_test_theme_roots'] = [];
     $GLOBALS['gitup_test_last_redirect'] = null;
     $GLOBALS['gitup_test_github_plugins'] = [];
     $GLOBALS['gitup_test_github_themes'] = [];

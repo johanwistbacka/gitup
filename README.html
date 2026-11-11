@@ -8,7 +8,7 @@
 <h1 id="gitup">GitUp</h1>
 
 <blockquote>
-<p><strong>Version:</strong> 2026.05.22.03-beta
+<p><strong>Version:</strong> 2026.11.11.01
 Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.</p>
 </blockquote>
 
@@ -201,6 +201,20 @@ Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.</p>
 </ul>
 
 <h2 id="changelog">Changelog</h2>
+
+<h3 id="security-release-2026-11-11">2026.11.11.01</h3>
+<ul>
+<li>Säkerhetsfix: användare med enbart `update_core` kan inte längre läsa privata plugin- och temareleaser med sajtens GitHub-token. Behörighet kontrolleras innan komponenter räknas upp eller data hämtas från GitHub eller cache.</li>
+<li>Säkerhetsfix: temainstallationer och uppdateringar avbryts vid tvetydiga temakataloger, namnkollisioner, osäkra mappnamn eller misslyckat namnbyte. Paketet kan inte fortsätta med ett annat temas mappnamn; faktisk målplats kontrolleras och installationen behåller rätt temarot.</li>
+<li>Plugin- och temalistor följer respektive uppdateringsbehörighet. Global cachetömning och refresh kräver `manage_options`.</li>
+<li>Install from URL respekterar WordPress gemensamma policy för filändringar, inklusive `file_mod_allowed`.</li>
+<li>Återställning av aktivt tema efter manuell uppdatering använder nu WordPress aktuella `switch_theme`-anrop med stylesheet som enda argument, även för barnteman.</li>
+<li>Innehåller tidigare beta-/RC-förbättringar för installation från URL, pakethämtning, destinationsmappar, återaktivering, tokenhantering och rensning vid avinstallation.</li>
+<li>Kräver explicit `Update URI`; `ThemeURI` räcker inte som uppdateringskälla. Plugins som ligger som en ensam fil i pluginroten uppdateras inte av GitUp.</li>
+<li>Inga databasmigreringar. Säkerhetskopiera pluginfilerna och databasen före installation. Återställ kod från en säkerhetskopia om en uppgradering misslyckas; äldre versioner återinför de rättade säkerhetsbristerna.</li>
+<li>Tillgänglighetsgranskning enligt WCAG 2.2 AA ingår inte i denna säkerhetsrelease, enligt ägarens beslut 2026-11-11.</li>
+</ul>
+
 
 <h3 id="2026.05.22.03-beta">2026.05.22.03-beta</h3>
 

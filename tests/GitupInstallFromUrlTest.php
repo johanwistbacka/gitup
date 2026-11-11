@@ -525,6 +525,28 @@ final class GitupInstallFromUrlTest extends GitupTestCase
         $this->assertTrue($result);
     }
 
+    public function test_can_install_respects_wordpress_file_modification_policy(): void
+    {
+        $deny = static function ($allowed, $context) {
+            return $context === 'gitup_install_from_url' ? false : $allowed;
+        };
+        add_filter('file_mod_allowed', $deny, 10, 2);
+        try {
+            foreach (['plugin', 'theme', 'any'] as $type) {
+                $result = gitup_install_from_url_can_install($type);
+                $this->assertTrue(is_wp_error($result));
+                $this->assertSame('gitup_disallow_file_mods', $result->get_error_code());
+            }
+            $this->assertSame([], $GLOBALS['gitup_test_http_calls']);
+        } finally {
+            foreach ($GLOBALS['gitup_test_hooks']['file_mod_allowed'][10] as $key => $entry) {
+                if ($entry['callback'] === $deny) {
+                    unset($GLOBALS['gitup_test_hooks']['file_mod_allowed'][10][$key]);
+                }
+            }
+        }
+    }
+
     public function test_can_install_returns_error_for_plugin_when_install_plugins_denied(): void
     {
         $GLOBALS['gitup_test_denied_caps'] = ['install_plugins'];

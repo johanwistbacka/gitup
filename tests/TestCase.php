@@ -15,7 +15,7 @@ abstract class GitupTestCase
 
     protected function removeDirectory(string $path): void
     {
-        if (!file_exists($path)) {
+        if (!file_exists($path) && !is_link($path)) {
             return;
         }
 

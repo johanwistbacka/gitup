@@ -356,6 +356,20 @@ if (!function_exists('gitup_compare_version_tags')) {
   }
 }
 
+if (!function_exists('gitup_is_valid_theme_stylesheet')) {
+  function gitup_is_valid_theme_stylesheet($stylesheet) {
+    // Numeric stylesheet array keys from wp_get_themes() arrive as integers.
+    if (is_int($stylesheet)) {
+      $stylesheet = (string) $stylesheet;
+    }
+    // Core derives a theme-root destination from the selected source basename.
+    // A path cannot satisfy that contract; never normalize it into another theme.
+    return is_string($stylesheet) && $stylesheet !== '' && trim($stylesheet) === $stylesheet
+      && $stylesheet !== '.' && $stylesheet !== '..'
+      && !preg_match('/[\\\\\/:\x00-\x1f\x7f]/', $stylesheet);
+  }
+}
+
 if (!function_exists('gitup_find_theme_root_directory')) {
   function gitup_find_theme_root_directory($source, $expected_stylesheet = '') {
     $expected_stylesheet = trim((string) $expected_stylesheet, '/');
@@ -397,11 +411,17 @@ if (!function_exists('gitup_find_theme_root_directory')) {
     }
 
     if ($expected_stylesheet !== '') {
+      $matches = [];
       foreach ($candidates as $candidate) {
         if (basename($candidate) === $expected_stylesheet) {
-          gitup_log('theme root candidate matched expected stylesheet: ' . $candidate);
-          return trailingslashit($candidate);
+          $matches[] = $candidate;
         }
+      }
+      if (count($matches) === 1) {
+        return trailingslashit($matches[0]);
+      }
+      if (count($matches) > 1) {
+        return new WP_Error('gitup_ambiguous_theme_source', __('The package contains multiple matching theme directories.', 'gitup'));
       }
     }
 
@@ -414,7 +434,7 @@ if (!function_exists('gitup_find_theme_root_directory')) {
       gitup_log('theme root multiple candidates found: ' . json_encode($candidates));
     }
 
-    return !empty($candidates) ? trailingslashit($candidates[0]) : '';
+    return new WP_Error('gitup_invalid_theme_source', __('The package must contain one unambiguous theme directory.', 'gitup'));
   }
 }
 
@@ -1061,33 +1081,70 @@ add_filter('upgrader_pre_download', function ($reply, $package, $upgrader) {
  *   3) Fallback: leta efter valfri .php med giltig plugin-header i subdir eller rot
  */
 add_filter('upgrader_source_selection', function ($source, $remote_source, $upgrader, $hook_extra) {
+  if (is_wp_error($source)) {
+    return $source;
+  }
   gitup_log('source_selection: source=' . $source . ' remote_source=' . $remote_source . ' hook_extra=' . json_encode($hook_extra));
 
   // === THEME handling: pick directory that contains a valid style.css (Theme Name header) ===
-  if (!empty($hook_extra['theme'])) {
+  if (isset($hook_extra['theme']) && $hook_extra['theme'] !== '') {
+    if (!gitup_is_valid_theme_stylesheet($hook_extra['theme'])) {
+      return new WP_Error('gitup_invalid_theme_stylesheet', __('The theme directory cannot be updated safely.', 'gitup'));
+    }
     gitup_log('theme source_selection: expected stylesheet=' . $hook_extra['theme']);
     $theme_root = gitup_find_theme_root_directory($source, $hook_extra['theme']);
+    if (is_wp_error($theme_root)) {
+      return $theme_root;
+    }
     if ($theme_root !== '') {
       $expected_stylesheet = trim((string) $hook_extra['theme'], '/');
       $selected_theme_root = untrailingslashit($theme_root);
+      $resolved_root = realpath($selected_theme_root);
+      $resolved_working = realpath($remote_source);
+      // realpath() uses backslashes on Windows; compare one path representation.
+      if ($resolved_root !== false && $resolved_working !== false) {
+        $resolved_root = str_replace('\\', '/', $resolved_root);
+        $resolved_working = str_replace('\\', '/', $resolved_working);
+      }
+      if ($resolved_root === false || $resolved_working === false
+        || ($resolved_root !== $resolved_working && strpos($resolved_root, trailingslashit($resolved_working)) !== 0)
+        || is_link($selected_theme_root)) {
+        return new WP_Error('gitup_invalid_theme_source', __('The theme directory is outside the extracted package.', 'gitup'));
+      }
 
       if ($expected_stylesheet !== '' && basename($selected_theme_root) !== $expected_stylesheet) {
         $renamed_theme_root = trailingslashit(dirname($selected_theme_root)) . $expected_stylesheet;
+        if (file_exists($renamed_theme_root) || is_link($renamed_theme_root)) {
+          // Case-insensitive filesystems may resolve a case-only rename to the
+          // selected directory itself. Permit that alias, never another entry.
+          $selected_stat = @stat($selected_theme_root);
+          $target_stat = @stat($renamed_theme_root);
+          $same_directory = strcasecmp($selected_theme_root, $renamed_theme_root) === 0
+            && !is_link($renamed_theme_root) && $selected_stat && $target_stat
+            && $selected_stat['dev'] === $target_stat['dev'] && $selected_stat['ino'] === $target_stat['ino'];
+          if (!$same_directory) {
+            return new WP_Error('gitup_theme_source_collision', __('The package contains a conflicting theme directory.', 'gitup'));
+          }
+        }
         if (@rename($selected_theme_root, $renamed_theme_root)) {
           $theme_root = trailingslashit($renamed_theme_root);
           gitup_log('theme: renamed selected root to expected stylesheet: ' . $theme_root);
         } else {
           gitup_log('theme: failed to rename selected root ' . $selected_theme_root . ' to ' . $renamed_theme_root);
+          return new WP_Error('gitup_theme_source_rename_failed', __('The theme directory could not be renamed safely.', 'gitup'));
         }
       }
 
+      if (basename(untrailingslashit($theme_root)) !== $expected_stylesheet || !is_dir($theme_root) || is_link(untrailingslashit($theme_root))) {
+        return new WP_Error('gitup_invalid_theme_source', __('The theme directory does not match the requested theme.', 'gitup'));
+      }
       gitup_log('theme: selected theme root ' . $theme_root . ' for stylesheet ' . $hook_extra['theme']);
       gitup_log_glob_contents('theme: selected root contents', $theme_root);
       return $theme_root;
     }
     gitup_log('theme: no valid theme root found under source ' . $source);
     gitup_log_glob_contents('theme: source contents', $source);
-    return $source;
+    return new WP_Error('gitup_invalid_theme_source', __('The package does not contain a valid theme directory.', 'gitup'));
   }
 
   $expected_dir = null;
@@ -1170,28 +1227,33 @@ add_filter('upgrader_source_selection', function ($source, $remote_source, $upgr
   return $source;
 }, 10, 4);
 
-/**
- * upgrader_install_package_result — ren loggning av resultatet
- */
-add_filter('upgrader_install_package_result', function ($result, $hook_extra) {
-  if (!is_wp_error($result) && is_array($result) && !empty($hook_extra['theme'])) {
-    $expected_stylesheet = (string) $hook_extra['theme'];
-    $current_destination_name = isset($result['destination_name']) ? (string) $result['destination_name'] : '';
-
-    if ($current_destination_name === '') {
-      $result['destination_name'] = $expected_stylesheet;
-      gitup_log('install_package_result(theme): filled empty destination_name with stylesheet=' . $expected_stylesheet);
-    } elseif ($current_destination_name !== $expected_stylesheet) {
-      gitup_log(
-        'install_package_result(theme): overriding destination_name from ' .
-        $current_destination_name .
-        ' to stylesheet=' .
-        $expected_stylesheet
-      );
-      $result['destination_name'] = $expected_stylesheet;
+if (!function_exists('gitup_validate_theme_install_result')) {
+  function gitup_validate_theme_install_result($result, $hook_extra) {
+    if (is_wp_error($result) || !is_array($result) || !isset($hook_extra['theme']) || $hook_extra['theme'] === '') {
+      return $result;
     }
+    $stylesheet = is_int($hook_extra['theme']) ? (string) $hook_extra['theme'] : $hook_extra['theme'];
+    if (!gitup_is_valid_theme_stylesheet($stylesheet)
+      || empty($result['destination'])
+      || untrailingslashit($result['destination']) !== untrailingslashit(get_theme_root($stylesheet)) . '/' . $stylesheet
+      || !isset($result['destination_name']) || $result['destination_name'] !== $stylesheet) {
+      return new WP_Error('gitup_theme_destination_mismatch', __('The installed theme destination does not match the requested theme.', 'gitup'));
+    }
+    return $result;
   }
+}
 
+// Check the actual destination before core can switch the active theme.
+add_filter('upgrader_post_install', function ($response, $hook_extra, $result) {
+  if (is_wp_error($response)) {
+    return $response;
+  }
+  $checked = gitup_validate_theme_install_result($result, $hook_extra);
+  return is_wp_error($checked) ? $checked : $response;
+}, 5, 3);
+
+add_filter('upgrader_install_package_result', function ($result, $hook_extra) {
+  $result = gitup_validate_theme_install_result($result, $hook_extra);
   gitup_log_upgrader_result('install_package_result', $result);
   gitup_log('install_package_result hook_extra=' . json_encode($hook_extra));
   return $result;
@@ -1237,12 +1299,12 @@ add_filter('upgrader_package_options', function ($options) {
   }
 
   // Handle theme updates: ensure destination is the existing theme directory and do not abort if it exists
-  if (empty($hook_extra['plugin']) && !empty($hook_extra['theme'])) {
+  if (empty($hook_extra['plugin']) && isset($hook_extra['theme']) && $hook_extra['theme'] !== '') {
     $theme_stylesheet = $hook_extra['theme']; // e.g. vc-theme-2023
     if (!empty($options['destination'])) {
       // Keep destination at themes root; source_selection renames the extracted
       // theme directory to the active stylesheet so core computes destination_name correctly.
-      $options['destination'] = get_theme_root();
+      $options['destination'] = get_theme_root($theme_stylesheet);
       unset($options['destination_name']);
       $options['clear_destination'] = true; // overwrite existing files during update
       $options['abort_if_destination_exists'] = false; // allow existing theme dir

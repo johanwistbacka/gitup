@@ -202,7 +202,7 @@ if (!function_exists('gitup_build_theme_package_options_filter')) {
   function gitup_build_theme_package_options_filter($theme_stylesheet) {
     return function ($options) use ($theme_stylesheet) {
       $options['hook_extra']['theme'] = $theme_stylesheet;
-      $options['destination'] = get_theme_root();
+      $options['destination'] = get_theme_root($theme_stylesheet);
       unset($options['destination_name']);
       $options['clear_destination'] = true;
       $options['abort_if_destination_exists'] = false;
@@ -552,10 +552,17 @@ if (!function_exists('get_github_themes')) {
 if (!function_exists("gitup_settings_page")) {
   function gitup_settings_page()
   {
-    // Determine active tab
-    $active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'updates';
-    $force_refresh = false;
+    $can_update_plugins = current_user_can('update_plugins');
+    $can_update_themes = current_user_can('update_themes');
+    $can_view_updates = $can_update_plugins || $can_update_themes;
     $can_manage_settings = current_user_can('manage_options');
+    // Determine active tab
+    $default_tab = !$can_view_updates && $can_manage_settings ? 'settings' : 'updates';
+    $active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : $default_tab;
+    $force_refresh = false;
+    if ($active_tab === 'updates' && !$can_view_updates) {
+      wp_die(esc_html__('You do not have permission to view GitUp updates.', 'gitup'));
+    }
     if ($active_tab === 'settings' && !$can_manage_settings) {
       wp_die(__('You do not have permission to manage GitUp credentials.', 'gitup'));
     }
@@ -576,7 +583,9 @@ if (!function_exists("gitup_settings_page")) {
       <?php settings_errors(); ?>
       <p><?php echo esc_html__('Manage GitHub-hosted plugin and theme updates for your WordPress site.', 'gitup'); ?></p>
       <h2 class="nav-tab-wrapper" style="margin-bottom:20px;">
-        <a href="<?php echo esc_url($updates_url); ?>" class="nav-tab<?php if ($active_tab === 'updates') echo ' nav-tab-active'; ?>"><?php esc_html_e('Updates', 'gitup'); ?></a>
+        <?php if ($can_view_updates) : ?>
+          <a href="<?php echo esc_url($updates_url); ?>" class="nav-tab<?php if ($active_tab === 'updates') echo ' nav-tab-active'; ?>"><?php esc_html_e('Updates', 'gitup'); ?></a>
+        <?php endif; ?>
         <a href="<?php echo esc_url($install_url); ?>" class="nav-tab<?php if ($active_tab === 'install') echo ' nav-tab-active'; ?>"><?php esc_html_e('Install from URL', 'gitup'); ?></a>
         <?php if ($can_manage_settings) : ?>
           <a href="<?php echo esc_url($settings_url); ?>" class="nav-tab<?php if ($active_tab === 'settings') echo ' nav-tab-active'; ?>"><?php esc_html_e('Settings', 'gitup'); ?></a>
@@ -594,8 +603,8 @@ if (!function_exists("gitup_settings_page")) {
           $class = (isset($_GET['ok']) && $_GET['ok'] === '1') ? 'updated' : 'error';
           echo '<div class="' . esc_attr($class) . ' notice"><p>' . esc_html($msg) . '</p></div>';
         }
-        $github_plugins = get_github_plugins($force_refresh);
       ?>
+        <?php if ($can_manage_settings) : ?>
         <div class="gitup-update-actions" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:1em 0;">
           <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin:0;">
             <input type="hidden" name="action" value="gitup_refresh">
@@ -609,6 +618,9 @@ if (!function_exists("gitup_settings_page")) {
             <button type="submit" class="button clear-cache"><?php echo esc_html__('Clear GitHub cache', 'gitup'); ?></button>
           </form>
         </div>
+        <?php endif; ?>
+        <?php if ($can_update_plugins) : ?>
+        <?php $github_plugins = get_github_plugins($force_refresh); ?>
         <h2 style="margin-top:28px;"><?php esc_html_e('Plugins', 'gitup'); ?></h2>
         <table class="widefat fixed striped gitup-table">
             <thead>
@@ -748,6 +760,8 @@ if (!function_exists("gitup_settings_page")) {
                 <?php endforeach; ?>
             </tbody>
         </table>
+        <?php endif; ?>
+        <?php if ($can_update_themes) : ?>
         <h2 style="margin-top:28px;"><?php esc_html_e('Themes', 'gitup'); ?></h2>
         <?php $github_themes = get_github_themes($force_refresh); ?>
         <?php $odd = 'odd'; ?>
@@ -889,6 +903,7 @@ if (!function_exists("gitup_settings_page")) {
                 <?php endif; ?>
             </tbody>
         </table>
+        <?php endif; ?>
       <?php elseif ($active_tab === 'install') : ?>
         <?php
         // Show admin notices passed via redirect (?gitup_msg=...&ok=...) for the install tab.
@@ -1427,7 +1442,7 @@ add_action('admin_post_gitup_themes_install_release', function () {
       }
 
       if ($active_theme_is_valid) {
-        switch_theme($active_stylesheet, $active_template);
+        switch_theme($active_stylesheet);
         if (function_exists('gitup_log')) {
           gitup_log('manual theme restore: switch_theme called with stylesheet=' . $active_stylesheet . ' template=' . $active_template);
         }
@@ -1470,7 +1485,7 @@ add_action('admin_post_gitup_clear_cache', function() {
 });
 
 add_action('admin_post_gitup_refresh', function() {
-  if (!current_user_can('update_core')) {
+  if (!current_user_can('manage_options')) {
     wp_die(__('You do not have permission.', 'gitup'));
   }
   check_admin_referer('gitup_refresh');

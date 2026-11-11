@@ -668,7 +668,7 @@ if (!function_exists('gitup_resolve_install_from_url_confirm_request')) {
 
 if (!function_exists('gitup_install_from_url_can_install')) {
     /**
-     * Centraliserad capability- och DISALLOW_FILE_MODS-koll för install-from-URL.
+     * Centraliserad capability- och filändringskontroll för install-from-URL.
      *
      * `$type` accepterar `'plugin'`, `'theme'` eller `'any'`. Det senare
      * används av preview-steget innan vi vet vilken typ användaren kommer
@@ -682,10 +682,10 @@ if (!function_exists('gitup_install_from_url_can_install')) {
      * @return true|WP_Error
      */
     function gitup_install_from_url_can_install($type) {
-        if (defined('DISALLOW_FILE_MODS') && DISALLOW_FILE_MODS) {
+        if (!wp_is_file_mod_allowed('gitup_install_from_url')) {
             return new WP_Error(
                 'gitup_disallow_file_mods',
-                __('File modifications are disabled on this site (DISALLOW_FILE_MODS).', 'gitup')
+                __('File modifications are disabled on this site.', 'gitup')
             );
         }
 

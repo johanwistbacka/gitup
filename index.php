@@ -2,7 +2,9 @@
 /*
 Plugin Name: GitUp
 Description: Handles automatic updates for GitHub-hosted plugins and themes.
-Version: 2026.09.15.01-rc
+Version: 2026.11.11.01
+Requires at least: 6.8
+Requires PHP: 7.4
 Author: Johan Wistbacka
 Plugin URI: https://github.com/johanwistbacka/gitup
 Update URI: https://github.com/johanwistbacka/gitup

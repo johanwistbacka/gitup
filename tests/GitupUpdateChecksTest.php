@@ -6,6 +6,8 @@ final class GitupUpdateChecksTest extends GitupTestCase
 {
     public function test_plugin_update_check_adds_response_for_newer_github_release(): void
     {
+        // Scheduled update checks have no interactive user capabilities.
+        $GLOBALS['gitup_test_denied_caps'] = ['update_core', 'update_plugins', 'update_themes', 'manage_options'];
         $repo = 'https://github.com/Ratt-Grafiska/test-plugin';
         $latestUrl = 'https://api.github.com/repos/Ratt-Grafiska/test-plugin/releases/latest';
         $GLOBALS['gitup_test_installed_plugins']['test-plugin/test-plugin.php'] = [
@@ -70,6 +72,7 @@ final class GitupUpdateChecksTest extends GitupTestCase
 
     public function test_theme_update_check_adds_response_and_release_cache(): void
     {
+        $GLOBALS['gitup_test_denied_caps'] = ['update_core', 'update_plugins', 'update_themes', 'manage_options'];
         $repo = 'https://github.com/Ratt-Grafiska/test-theme';
         $latestUrl = 'https://api.github.com/repos/Ratt-Grafiska/test-theme/releases/latest';
         $GLOBALS['gitup_test_installed_themes']['test-theme'] = new GitupTestTheme([

@@ -1,5 +1,5 @@
 # GitUp
-> **Version:** 2026.09.15.01-rc
+> **Version:** 2026.11.11.01
 
 Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.
 
@@ -37,6 +37,17 @@ En WordPress-plugin som hanterar **automatiska uppdateringar** för plugins och 
    ![Pluginlistan](assets/images/screenshots/plugin-list.png)
 
 ## Konfiguration
+
+Kräver WordPress 6.8 eller senare och PHP 7.4 eller senare. Releasen verifieras på WordPress 6.8 och 7.1.2; fullständig kompatibilitet med alla mellanliggande miljöer är inte testad.
+
+### Behörigheter
+
+- GitUp-menyn kräver `update_core`, som tidigare.
+- Pluginreleaser och deras privata metadata kräver `update_plugins`.
+- Temareleaser och deras privata metadata kräver `update_themes`.
+- Inställningar, tokenhantering, **Refresh list** och **Clear GitHub cache** kräver `manage_options`.
+- En användare som bara hanterar inställningar öppnar Settings som standard och kan inte läsa uppdateringslistorna.
+- Bakgrundskontroller av uppdateringar fortsätter utan inloggad användare.
 
 | Inställning | Beskrivning |
 |-------------|-------------|
@@ -154,6 +165,18 @@ Loggen hittar du i `wp-content/debug.log`.
 - Överväg att begränsa GitHub-anrop till explicita uppdateringsflöden och andra mindre prestandaförbättringar i admin.
 
 ## Changelog
+
+### 2026.11.11.01
+
+- Säkerhetsfix: användare med enbart `update_core` kan inte längre läsa privata plugin- och temareleaser med sajtens GitHub-token. Behörighet kontrolleras innan komponenter räknas upp eller data hämtas från GitHub eller cache.
+- Säkerhetsfix: temainstallationer och uppdateringar avbryts vid tvetydiga temakataloger, namnkollisioner, osäkra mappnamn eller misslyckat namnbyte. Paketet kan inte fortsätta med ett annat temas mappnamn; faktisk målplats kontrolleras och installationen behåller rätt temarot.
+- Plugin- och temalistor följer respektive uppdateringsbehörighet. Global cachetömning och refresh kräver `manage_options`.
+- Install from URL respekterar WordPress gemensamma policy för filändringar, inklusive `file_mod_allowed`.
+- Återställning av aktivt tema efter manuell uppdatering använder nu WordPress aktuella `switch_theme`-anrop med stylesheet som enda argument, även för barnteman.
+- Innehåller tidigare beta-/RC-förbättringar för installation från URL, pakethämtning, destinationsmappar, återaktivering, tokenhantering och rensning vid avinstallation.
+- Kräver explicit `Update URI`; `ThemeURI` räcker inte som uppdateringskälla. Plugins som ligger som en ensam fil i pluginroten uppdateras inte av GitUp.
+- Inga databasmigreringar. Säkerhetskopiera pluginfilerna och databasen före installation. Återställ kod från en säkerhetskopia om en uppgradering misslyckas; äldre versioner återinför de rättade säkerhetsbristerna.
+- Tillgänglighetsgranskning enligt WCAG 2.2 AA ingår inte i denna säkerhetsrelease, enligt ägarens beslut 2026-11-11.
 
 ### 2026.09.15.01-rc
 
