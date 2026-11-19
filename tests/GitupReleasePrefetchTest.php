@@ -28,11 +28,11 @@ final class GitupReleasePrefetchTest extends GitupTestCase
         $this->assertFalse($small === $large);
     }
 
-    public function test_cache_key_matches_existing_releases_data_formula(): void
+    public function test_cache_key_uses_versioned_releases_data_formula(): void
     {
         // The cache key must match the one in gitup_get_github_releases_data so that
         // entries written by the prefetch worker are visible to the existing readers.
-        $expected = 'github_releases_' . md5('https://github.com/owner/repo' . '|stable|20');
+        $expected = 'github_releases_v2_' . md5('https://github.com/owner/repo' . '|stable|20');
         $actual   = gitup_releases_cache_key('https://github.com/owner/repo', false, 20);
 
         $this->assertSame($expected, $actual);

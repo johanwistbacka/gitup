@@ -8,7 +8,7 @@
 <h1 id="gitup">GitUp</h1>
 
 <blockquote>
-<p><strong>Version:</strong> 2026.11.11.01
+<p><strong>Version:</strong> 2026.11.19.01
 Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.</p>
 </blockquote>
 
@@ -163,7 +163,7 @@ Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.</p>
 <ul>
 <li>Kräver att plugins/teman deklarerar <code>UpdateURI</code> i plugin-headern eller <code>ThemeURI</code> i <code>style.css</code>.</li>
 <li>Endast GitHub-stöd (ej GitLab, Bitbucket etc).</li>
-<li>Tar alltid första icke-draft release (eller prerelease om tillåtet), inte &#8220;latest commit&#8221; på branch.</li>
+<li>Med beta/rc tillåtet väljs högsta version bland hämtade icke-draft-releaser. Stable-läget använder GitHubs <code>/releases/latest</code>. Tagg-fallback sorteras efter version inom vald kanal. Endast en API-sida hämtas; äldre releaser/taggar utanför sidan ingår inte i jämförelsen.</li>
 </ul>
 
 <h2 id="roadmaptodo">Roadmap / TODO</h2>
@@ -201,6 +201,17 @@ Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.</p>
 </ul>
 
 <h2 id="changelog">Changelog</h2>
+
+<h3 id="release-2026-11-19">2026.11.19.01</h3>
+<ul>
+<li>Temats detaljruta, versionslista och uppdateringsstatus följer samma valda releasekanal.</li>
+<li>Releaser och tagg-fallback sorteras efter version före begränsningen. Beta.12 väljs före beta.9 även med gränsen 1.</li>
+<li>Originaltaggen, inklusive ledande <code>v</code>, bevaras för paketnedladdningen. Förhandsutgåvor markeras korrekt i tagg-fallback.</li>
+<li>Versionsmärkta cachenycklar ersätter äldre releasecache automatiskt. Prefetch och Site Health använder samma nycklar.</li>
+<li>Sex nya regressionstester med flera scenarier för kanaler, versionsordning, gränser, taggar, cache, adminvy och uppdateringsmotor.</li>
+<li>Inga databasmigreringar eller ändrade behörigheter. Endast en API-sida hämtas. Ingen WCAG 2.2 AA-granskning ingår.</li>
+<li>Ta en aktuell säkerhetskopia före installation. Återställ vid behov pluginfilerna från <code>2026.11.11.01</code> utan avinstallation; den versionen återinför releasevalsfelen.</li>
+</ul>
 
 <h3 id="security-release-2026-11-11">2026.11.11.01</h3>
 <ul>

@@ -69,8 +69,8 @@ final class GitupReleaseFetchingTest extends GitupTestCase
         $releases = gitup_get_github_releases_data($repo, false, 10);
 
         $this->assertCount(2, $releases);
-        $this->assertSame('1.5.0', $releases[0]['tag_name']);
-        $this->assertSame('1.0.0', $releases[1]['tag_name']);
+        $this->assertSame('v1.5.0', $releases[0]['tag_name']);
+        $this->assertSame('v1.0.0', $releases[1]['tag_name']);
         $this->assertStringContainsString('/commit/ccc333', $releases[0]['html_url']);
     }
 
@@ -123,8 +123,8 @@ final class GitupReleaseFetchingTest extends GitupTestCase
         $second = gitup_get_github_releases_data($repo, false, 10);
 
         $this->assertCount(1, $first);
-        $this->assertSame('1.4.0', $first[0]['tag_name']);
-        $this->assertSame('1.4.0', $second[0]['tag_name']);
+        $this->assertSame('v1.4.0', $first[0]['tag_name']);
+        $this->assertSame('v1.4.0', $second[0]['tag_name']);
         $this->assertSame(1, gitup_test_http_call_count($latestUrl));
         $this->assertSame(1, gitup_test_http_call_count($tagsUrl));
     }

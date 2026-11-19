@@ -1,5 +1,5 @@
 # GitUp
-> **Version:** 2026.11.11.01
+> **Version:** 2026.11.19.01
 
 Hanterar automatiska uppdateringar för GitHub-hostade plugins och teman.
 
@@ -38,7 +38,7 @@ En WordPress-plugin som hanterar **automatiska uppdateringar** för plugins och 
 
 ## Konfiguration
 
-Kräver WordPress 6.8 eller senare och PHP 7.4 eller senare. Releasen verifieras på WordPress 6.8 och 7.1.2; fullständig kompatibilitet med alla mellanliggande miljöer är inte testad.
+Kräver WordPress 6.8 eller senare och PHP 7.4 eller senare. Riktade tester körs mot WordPress 6.8, 7.1.2 och 7.2-beta5. PHP 7.4-kompatibilitet kontrolleras med syntax- och kompatibilitetsanalys; regressionssviten körs med PHP 8.4. Fullständig kompatibilitet med alla mellanliggande miljöer är inte testad.
 
 ### Behörigheter
 
@@ -156,7 +156,7 @@ Loggen hittar du i `wp-content/debug.log`.
 - Kräver att plugins och teman deklarerar `UpdateURI` i pluginets huvudfil respektive temats `style.css`.
 - Root-level single-file plugins stöds inte, eftersom en säker uppgradering kräver en egen pluginmapp.
 - Endast GitHub-stöd (ej GitLab, Bitbucket etc).
-- Tar alltid första icke-draft release (eller prerelease om tillåtet), inte "latest commit" på branch.
+- Med beta/rc tillåtet väljs högsta version bland hämtade icke-draft-releaser. Stable-läget använder GitHubs `/releases/latest`. Tagg-fallback sorteras efter version inom vald kanal. Endast en API-sida hämtas; äldre releaser/taggar utanför sidan ingår inte i jämförelsen.
 
 ## Nästa steg
 
@@ -165,6 +165,16 @@ Loggen hittar du i `wp-content/debug.log`.
 - Överväg att begränsa GitHub-anrop till explicita uppdateringsflöden och andra mindre prestandaförbättringar i admin.
 
 ## Changelog
+
+### 2026.11.19.01
+
+- Temats detaljruta, versionslista och uppdateringsstatus följer samma valda releasekanal. Med beta/rc aktiverat visas förhandsutgåvor även i detaljrutan.
+- Releaser och tagg-fallback sorteras med GitUps versionsjämförelse innan resultatet begränsas. `0.1.1-beta.12` väljs därför före `0.1.1-beta.9` även om GitHub returnerar beta.9 först och gränsen är 1.
+- Originaltaggen, inklusive ledande `v`, bevaras för paketnedladdningen. Tagg-fallback markerar också förhandsutgåvor korrekt.
+- Versionsmärkta cachenycklar ersätter tidigare release- och senaste-tagg-cache automatiskt, även för redan begränsade listor. Prefetch och Site Health använder samma nycklar.
+- Sex nya regressionstester med flera scenarier täcker releasekanaler, API-ordning, gränser, tagg-fallback, `v`-prefix, befintlig cache, detaljruta, rullista och uppdateringsmotor.
+- Inga databasmigreringar eller ändrade behörigheter. Endast en API-sida hämtas. Ingen WCAG 2.2 AA-granskning ingår i denna release.
+- Ta en aktuell säkerhetskopia före installation. Återställ vid behov GitUps pluginfiler från `2026.11.11.01` utan att avinstallera; inställningarna ska bevaras. Den tidigare versionen återinför de två releasevalsfelen.
 
 ### 2026.11.11.01
 

@@ -32,7 +32,7 @@ final class GitupSiteHealthTest extends GitupTestCase
     public function test_release_summary_reads_cached_release_status(): void
     {
         $repo = 'https://github.com/Ratt-Grafiska/gitup';
-        $cacheKey = 'github_release_' . md5($repo . '|stable');
+        $cacheKey = gitup_latest_release_cache_key($repo, false);
 
         $GLOBALS['gitup_test_github_plugins'] = [
             ['name' => 'GitUp', 'github' => $repo],
@@ -48,7 +48,7 @@ final class GitupSiteHealthTest extends GitupTestCase
     public function test_health_test_marks_rate_limit_as_recommended_when_token_is_otherwise_good(): void
     {
         $repo = 'https://github.com/Ratt-Grafiska/gitup';
-        $cacheKey = 'github_release_' . md5($repo . '|stable');
+        $cacheKey = gitup_latest_release_cache_key($repo, false);
 
         update_option('gitup_github_token', 'secret');
         update_option('gitup_token_last_verified', time() - HOUR_IN_SECONDS);

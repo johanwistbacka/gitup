@@ -7,31 +7,8 @@
  * via WP-cron, samt en AJAX-endpoint som row-render fyller varje rad med data
  * från cache utan att blockera pageload med GitHub-anrop.
  *
- * Filen är medvetet fristående (samma mönster som `install-from-url.php`) så
- * att den kan backportas till äldre kodbaser med enbart prefix-byte.
+ * Cache-nyckeln delas med uppdateringsmotorn i `gitup-updater.php`.
  */
-
-if (!function_exists('gitup_releases_cache_key')) {
-    /**
-     * Beräknar transient-nyckeln för en repo-releases-cache.
-     *
-     * Måste matcha formeln i `gitup_get_github_releases_data` (gitup-updater.php)
-     * så att värden som skrivs av prefetch-workern blir synliga för befintliga
-     * läsare och tvärtom.
-     *
-     * @param string $repo_url
-     * @param bool   $include_prereleases
-     * @param int    $limit
-     * @return string
-     */
-    function gitup_releases_cache_key($repo_url, $include_prereleases = false, $limit = 20) {
-        return 'github_releases_' . md5(
-            (string) $repo_url
-            . '|' . ($include_prereleases ? 'pre' : 'stable')
-            . '|' . (int) $limit
-        );
-    }
-}
 
 if (!function_exists('gitup_get_cached_releases')) {
     /**

@@ -36,7 +36,16 @@ final class GitupUpdatesAuthorizationTest extends GitupTestCase
                     'url' => $release['html_url'], 'published' => $release['published_at'],
                 ]],
             ];
-            $GLOBALS['gitup_test_github_' . $type . 's'] = [$component];
+            if ($type === 'theme') {
+                $GLOBALS['gitup_test_installed_themes']['private-theme'] = new GitupTestTheme([
+                    'Name' => 'Private theme',
+                    'Version' => '1.0.0',
+                    'Author' => 'Example',
+                    'UpdateURI' => $repo,
+                ]);
+            } else {
+                $GLOBALS['gitup_test_github_plugins'] = [$component];
+            }
             // Keep visibility local so HTTP assertions isolate release reads.
             set_transient('github_repo_visibility_' . md5($repo), 'private');
             if ($cached) {

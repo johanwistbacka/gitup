@@ -528,7 +528,7 @@ if (!function_exists('get_github_themes')) {
       }
       // Debug-loggning av theme-namn och update_uri
       gitup_log('Theme: ' . $theme->get('Name') . ' UpdateURI: ' . $update_uri);
-      $releases = gitup_fetch_releases($update_uri, false, 10);
+      $releases = gitup_fetch_releases($update_uri, gitup_include_prereleases_enabled(), 20);
       gitup_log('Found ' . count($releases) . ' releases for ' . $theme->get('Name'));
 
       $github_themes[] = [
@@ -784,8 +784,7 @@ if (!function_exists("gitup_settings_page")) {
                         $repo_path  = parse_url($theme["github"], PHP_URL_PATH);
                         if ($repo_path) { $repo_label = ltrim($repo_path, '/'); }
                         // Beräkna $row_class baserat på $selected_tag och jämförelse mot $theme['version']
-                        $include_pre = function_exists('gitup_include_prereleases_enabled') ? gitup_include_prereleases_enabled() : (get_option('gitup_include_prereleases', '0') === '1');
-                        $releases = gitup_fetch_releases($theme['github'], $include_pre, 20);
+                        $releases = $theme['releases'];
                         $row_class = '';
                         $default_action_state = null;
                         if (!empty($releases)) {

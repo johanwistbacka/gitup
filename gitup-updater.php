@@ -19,8 +19,8 @@
  * Förhandsreleaser
  * ----------------
  *  - Respekteras av både UI och uppdateringsmotorn. Om inställningen är AV används
- *    endast `/releases/latest`. Om PÅ används `/releases?per_page=10` och första icke-draft
- *    plockas (kan vara prerelease).
+ *    endast `/releases/latest`. Om PÅ används `/releases` och högsta version bland
+ *    hämtade icke-drafts plockas (kan vara prerelease).
  */
 if (!function_exists('gitup_log')) {
   /**
@@ -438,10 +438,38 @@ if (!function_exists('gitup_find_theme_root_directory')) {
   }
 }
 
+if (!function_exists('gitup_releases_cache_key')) {
+  /**
+   * Shared cache key for version-sorted release lists and cache-only readers.
+   *
+   * @param string $repo_url GitHub repository URL.
+   * @param bool   $include_prereleases Whether prereleases are included.
+   * @param int    $limit Maximum number of returned releases.
+   * @return string
+   */
+  function gitup_releases_cache_key($repo_url, $include_prereleases = false, $limit = 20) {
+    // v2 invalidates lists truncated in GitHub order, including limit=1.
+    return 'github_releases_v2_' . md5((string) $repo_url . '|' . ($include_prereleases ? 'pre' : 'stable') . '|' . (int) $limit);
+  }
+}
+
+if (!function_exists('gitup_latest_release_cache_key')) {
+  /**
+   * Cache key for the latest tag selected using version-sorted release data.
+   *
+   * @param string $repo_url GitHub repository URL.
+   * @param bool   $include_prereleases Whether prereleases are included.
+   * @return string
+   */
+  function gitup_latest_release_cache_key($repo_url, $include_prereleases = false) {
+    return 'github_release_v2_' . md5((string) $repo_url . '|' . ($include_prereleases ? 'pre' : 'stable'));
+  }
+}
+
 if (!function_exists('gitup_get_latest_github_release_tag')) {
   function gitup_get_latest_github_release_tag($repo_url, $force_refresh = false) {
     $include_prereleases = gitup_include_prereleases_enabled();
-    $cache_key = 'github_release_' . md5($repo_url . '|' . ($include_prereleases ? 'pre' : 'stable'));
+    $cache_key = gitup_latest_release_cache_key($repo_url, $include_prereleases);
 
     if ($force_refresh) {
       delete_transient($cache_key);
@@ -472,7 +500,7 @@ if (!function_exists('gitup_get_github_releases_data')) {
       return [];
     }
 
-    $cache_key = 'github_releases_' . md5($repo_url . '|' . ($include_prereleases ? 'pre' : 'stable') . '|' . (int) $limit);
+    $cache_key = gitup_releases_cache_key($repo_url, $include_prereleases, $limit);
     $cached = get_transient($cache_key);
     if (is_array($cached)) {
       return $cached;
@@ -521,9 +549,6 @@ if (!function_exists('gitup_get_github_releases_data')) {
             'html_url'     => $rel['html_url'] ?? '',
             'prerelease'   => !empty($rel['prerelease']),
           ];
-          if (count($releases) >= $limit) {
-            break;
-          }
         }
       } elseif (is_array($data) && !empty($data['tag_name'])) {
         $releases[] = [
@@ -563,30 +588,26 @@ if (!function_exists('gitup_get_github_releases_data')) {
             }
 
             $releases[] = [
-              'tag_name'     => gitup_normalize_version_tag($tag_name),
+              'tag_name'     => $tag_name,
               'name'         => gitup_normalize_version_tag($tag_name),
               'body'         => '',
               'published_at' => '',
               'html_url'     => !empty($tag['commit']['sha'])
                 ? 'https://github.com' . $repo_path . '/commit/' . $tag['commit']['sha']
                 : '',
-              'prerelease'   => false,
+              'prerelease'   => (bool) preg_match('/(alpha|beta|rc|pre)/i', $tag_name),
             ];
-
-            if (count($releases) >= $limit) {
-              break;
-            }
           }
-
-          usort($releases, function ($a, $b) {
-            return version_compare(
-              gitup_normalize_version_tag($b['tag_name']),
-              gitup_normalize_version_tag($a['tag_name'])
-            );
-          });
         }
       }
     }
+
+    // GitHub's API order can differ from version order.
+    // Keep original tags for package URLs; normalize only inside the comparator.
+    usort($releases, function ($a, $b) {
+      return gitup_compare_version_tags($b['tag_name'], $a['tag_name']);
+    });
+    $releases = array_slice($releases, 0, max(1, (int) $limit));
 
     set_transient(
       $cache_key,
@@ -758,7 +779,7 @@ if (!class_exists('GitUpUpdater')) {
      * Hämtar (och cache:ar) senaste release-tag från GitHub för ett repo.
      *
      * - Stable-läge:  `/releases/latest` → tag_name
-     * - Pre-läge:     `/releases?per_page=10` → första icke-draft
+     * - Pre-läge:     `/releases?per_page=10` → högsta version bland hämtade icke-drafts
      * - Cache: Lyckad tag 1h, fel/N/A 5min (återhämtar sig snabbt vid transienta fel)
      *
      * @param string $repo_url  Full GitHub-URL (UpdateURI/ThemeURI)

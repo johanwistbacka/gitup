@@ -111,7 +111,7 @@ if (!function_exists('gitup_get_site_health_release_summary')) {
     $include_pre = function_exists('gitup_include_prereleases_enabled')
       ? gitup_include_prereleases_enabled()
       : (function_exists('gitup_should_include_prereleases') ? gitup_should_include_prereleases() : (get_option('gitup_include_prereleases', '0') === '1'));
-    $cache_key = 'github_release_' . md5($repo_url . '|' . ($include_pre ? 'pre' : 'stable'));
+    $cache_key = gitup_latest_release_cache_key($repo_url, $include_pre);
     $transient = get_transient($cache_key);
     $summary['label'] = $item['name'] . ' (' . $repo_url . ')';
 

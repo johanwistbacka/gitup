@@ -34,7 +34,6 @@ $GLOBALS['gitup_test_http_responses'] = [];
 $GLOBALS['gitup_test_http_calls'] = [];
 $GLOBALS['gitup_test_theme_root'] = sys_get_temp_dir() . '/gitup-test-themes';
 $GLOBALS['gitup_test_github_plugins'] = [];
-$GLOBALS['gitup_test_github_themes'] = [];
 $GLOBALS['gitup_test_installed_plugins'] = [];
 $GLOBALS['gitup_test_installed_themes'] = [];
 $GLOBALS['gitup_test_sent_mail'] = [];
@@ -328,11 +327,6 @@ function get_github_plugins($refresh = false) {
     return $GLOBALS['gitup_test_github_plugins'];
 }
 
-function get_github_themes($refresh = false) {
-    $GLOBALS['gitup_test_component_reads'][] = 'themes';
-    return $GLOBALS['gitup_test_github_themes'];
-}
-
 function get_plugins() {
     return $GLOBALS['gitup_test_installed_plugins'];
 }
@@ -360,6 +354,7 @@ function activate_plugin($plugin, $redirect = '', $network_wide = false, $silent
 }
 
 function wp_get_themes() {
+    $GLOBALS['gitup_test_component_reads'][] = 'themes';
     return $GLOBALS['gitup_test_installed_themes'];
 }
 
@@ -469,7 +464,6 @@ function gitup_test_reset_state(): void {
     $GLOBALS['gitup_test_theme_roots'] = [];
     $GLOBALS['gitup_test_last_redirect'] = null;
     $GLOBALS['gitup_test_github_plugins'] = [];
-    $GLOBALS['gitup_test_github_themes'] = [];
     $GLOBALS['gitup_test_installed_plugins'] = [];
     $GLOBALS['gitup_test_installed_themes'] = [];
     $GLOBALS['gitup_test_sent_mail'] = [];
